@@ -43,32 +43,73 @@ module Vector : VECTOR = struct
             V (x /. len, y /. len, z /. len)
 end
 
+module type SPHERE = sig
+    type t = Vector.t * float * Color.t       (* center position and radius *)
+
+    val color : Vector.t -> Vector.t -> t -> Color.t
+    val intersection : Vector.t -> Vector.t -> t -> Vector.t option
+end
+
+module Sphere : SPHERE = struct
+    type t = Vector.t * float * Color.t
+
+    let color q w e = Color.create 1 2 3 (*TODO *)
+
+    let intersection q w e = Some q (* TOOD *)
+end
+
+module type SURFACE = sig
+    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t      (* 4 vertexes *)
+
+    val color : Vector.t -> Vector.t -> t -> Color.t
+    val intersection : Vector.t -> Vector.t -> t -> Vector.t option
+end
+
+module Surface : SURFACE = struct
+    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t
+
+    let color q w e = Color.create 1 2 3 (*TODO *)
+
+    let intersection q w e = Some q (* TOOD *)
+end
+
 module type OBJ = sig
-    (* TODO *)
-    type t = int
+    type t = Sph of Sphere.t | Surf of Surface.t
+
     val color : Vector.t -> Vector.t -> t -> Color.t        (* camera pos -> intersection point -> obj -> color visible from camera pos *)
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
 end
 
 module Obj : OBJ = struct
-    (* TODO *)
-    type t = int
-    let color x y z = Color.create 1 2 3
-    let intersection q w e = Some q
+    type t = Sph of Sphere.t | Surf of Surface.t
+
+    let color pos intersection = function
+        Sph s -> Sphere.color pos intersection s
+        | Surf s -> Surface.color pos intersection s
+    
+    let intersection pos dir = function
+        Sph s -> Sphere.intersection pos dir s
+        | Surf s -> Surface.intersection pos dir s
 end
 
 let pixel_to_vector res_x res_y x y canvas_coords =
-    (* canvas_coords is list of upper left, upper right, lower right and lower left Vectors *)
+    (* canvas_coords is tuple of upper left, upper right, lower right and lower left Vectors *)
     match canvas_coords with
     ul, ur, lr, ll -> let horizontal, vertical = Vector.displacement ul ur, Vector.displacement ul ll in
         let width, height = Vector.len horizontal, Vector.len vertical in
         let ratio_x, ratio_y = float x /. float res_x, float y /. float res_y in
         Vector.(add ul (add (mult horizontal ratio_x) (mult vertical ratio_y)))
 
-let closest_intersection pos v objs =       (* camera pos -> camera dir -> objs -> optional object and point of intersection *)
+let test_pixel_to_vector = let open Vector in
+    let res_x, res_y = 1000, 1000
+    and x, y = 161, 415
+    and canvas_coords = create 0. 0. 0., create 1000. 0. 0., create 1000. (-1000.) 0., create 0. (-1000.) 0. in
+    pixel_to_vector res_x res_y x y canvas_coords
+
+let closest_intersection pos dir objs =       (* camera pos -> camera dir -> objs -> optional object and point of intersection *)
     let rec aux closest dist = function     (* optional current closest object and point -> dist (not optional; None => infinity) -> same return type as above *)
         [] -> closest
-        | hd :: tl -> match Obj.intersection pos v hd with      (* this match checks if ray from camera intersects with obj *)
+        | hd :: tl -> match Obj.intersection pos dir hd with      (* this match checks if ray from camera intersects with obj *)
             None -> aux closest dist tl
             | Some point -> let new_dist = Vector.dist pos point in
                 if new_dist < dist then aux (Some (hd, point)) new_dist tl
@@ -80,8 +121,8 @@ let render res_x res_y canvas_coords pos objs bg_color =        (* returns list 
         if y = res_y then []
         else let rec aux_x x =
             if x = res_x then []
-            else let v = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
-                match closest_intersection pos v objs with
+            else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
+                match closest_intersection pos dir objs with
                     None -> bg_color
                     | Some (obj, point) -> Obj.color pos point obj :: aux_x (x + 1) in
             aux_x 0 :: aux_y (y + 1) in
