@@ -5,7 +5,7 @@
 
 2. For y in range(res_y):
 		for x in range(res_x):
-			create vector v from camera to canvas[y][x]
-			find closest collision point p of v and objects
-			compute color c at p
-			image[y][x] = c
+			1. create vector v from camera to canvas[y][x]
+			2. find closest collision point p of v and objects
+			3. compute color c at p
+			4. image[y][x] = c
