@@ -1,0 +1,11 @@
+1. Read scene description and camera location from file.
+2. Render scene.
+3. Save to file.
+4. Display image from file.
+
+2. For y in range(res_y):
+		for x in range(res_x):
+			create vector v from camera to canvas[y][x]
+			find closest collision point p of v and objects
+			compute color c at p
+			image[y][x] = c
