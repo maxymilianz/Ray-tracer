@@ -44,31 +44,25 @@ module Vector : VECTOR = struct
 end
 
 module type SPHERE = sig
-    type t = Vector.t * float * Color.t       (* center position and radius *)
+    type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
 
-    val color : Vector.t -> Vector.t -> t -> Color.t
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option
 end
 
 module Sphere : SPHERE = struct
-    type t = Vector.t * float * Color.t
-
-    let color q w e = Color.create 1 2 3 (*TODO *)
+    type t = Vector.t * float * Color.t * (float * float * float)
 
     let intersection q w e = Some q (* TOOD *)
 end
 
 module type SURFACE = sig
-    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t      (* 4 vertexes *)
+    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t * (float * float * float)      (* 4 vertexes, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
 
-    val color : Vector.t -> Vector.t -> t -> Color.t
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option
 end
 
 module Surface : SURFACE = struct
-    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t
-
-    let color q w e = Color.create 1 2 3 (*TODO *)
+    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t * (float * float * float)
 
     let intersection q w e = Some q (* TOOD *)
 end
@@ -76,16 +70,11 @@ end
 module type OBJ = sig
     type t = Sph of Sphere.t | Surf of Surface.t
 
-    val color : Vector.t -> Vector.t -> t -> Color.t        (* camera pos -> intersection point -> obj -> color visible from camera pos *)
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
 end
 
 module Obj : OBJ = struct
     type t = Sph of Sphere.t | Surf of Surface.t
-
-    let color pos intersection = function
-        Sph s -> Sphere.color pos intersection s
-        | Surf s -> Surface.color pos intersection s
     
     let intersection pos dir = function
         Sph s -> Sphere.intersection pos dir s
@@ -116,6 +105,8 @@ let closest_intersection pos dir objs =       (* camera pos -> camera dir -> obj
                 else aux closest dist tl in
     aux None infinity objs
 
+let color pos point obj = Color.create 1 2 3        (* TODO *)
+
 let render res_x res_y canvas_coords pos objs bg_color =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
         if y = res_y then []
@@ -124,6 +115,6 @@ let render res_x res_y canvas_coords pos objs bg_color =        (* returns list 
             else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
                 match closest_intersection pos dir objs with
                     None -> bg_color
-                    | Some (obj, point) -> Obj.color pos point obj :: aux_x (x + 1) in
+                    | Some (obj, point) -> color pos point obj :: aux_x (x + 1) in
             aux_x 0 :: aux_y (y + 1) in
     aux_y 0
