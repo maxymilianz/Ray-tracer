@@ -17,6 +17,7 @@ module type VECTOR = sig
     val add : t -> t -> t
     val displacement : t -> t -> t      (* displacement between 2 points *)
     val mult : t -> float -> t
+    val dot_prod : t -> t -> float
     val dist : t -> t -> float
     val len : t -> float
     val normalize : t -> t
@@ -33,6 +34,8 @@ module Vector : VECTOR = struct
 
     let mult (V (x, y, z)) c = V (x *. c, y *. c, z *. c)
 
+    let dot_prod (V (x, y, z)) (V (x', y', z')) = x*.x' +. y*.y' +. z*.z'
+
     let dist (V (x, y, z)) (V (x', y', z')) = let dx = x -. x' and dy = y -. y' and dz = z -. z' in sqrt (dx*.dx +. dy*.dy +. dz*.dz)
 
     let len v = dist (V (0., 0., 0.)) v
@@ -43,6 +46,13 @@ module Vector : VECTOR = struct
             V (x /. len, y /. len, z /. len)
 end
 
+let solve_quadratic_equation a b c =
+    let delta = b*.b -. 4.*.a*.c in
+    if delta < 0. then None
+    else Some ((-.b +. sqrt delta) /. (2.*.a), (-.b -. sqrt delta) /. (2.*.a))
+
+let min a b = if a < b then a else b
+
 module type SPHERE = sig
     type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
 
@@ -52,8 +62,24 @@ end
 module Sphere : SPHERE = struct
     type t = Vector.t * float * Color.t * (float * float * float)
 
-    let intersection q w e = Some q (* TOOD *)
+    let intersection pos dir (center, r, _, _) =
+        let l = Vector.displacement center pos in
+        let a = Vector.dot_prod dir dir
+        and b = 2. *. Vector.dot_prod dir l
+        and c = Vector.dot_prod l l -. (r*.r) in
+        match solve_quadratic_equation a b c with
+        None -> None
+        | Some (x0, x1) ->
+            if x0 < 0. || x1 < 0. then None
+            else let closer = min x0 x1 in
+                Some Vector.(add pos (mult dir closer))
 end
+
+let test_sphere_intersection =
+    let open Vector in
+    let pos, dir = create 0. 0. 0., create 50. 50. 50.
+    and sph : Sphere.t = create 10. 10. 10., 10., Color.create 1 2 3, (1., 2., 3.) in
+    Sphere.intersection pos dir sph
 
 module type SURFACE = sig
     type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t * (float * float * float)      (* 4 vertexes, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
@@ -77,15 +103,14 @@ module Obj : OBJ = struct
     type t = Sph of Sphere.t | Surf of Surface.t
     
     let intersection pos dir = function
-        Sph s -> Sphere.intersection pos dir s
-        | Surf s -> Surface.intersection pos dir s
+        Sph sph -> Sphere.intersection pos dir sph
+        | Surf surf -> Surface.intersection pos dir surf
 end
 
 let pixel_to_vector res_x res_y x y canvas_coords =
     (* canvas_coords is tuple of upper left, upper right, lower right and lower left Vectors *)
     match canvas_coords with
     ul, ur, lr, ll -> let horizontal, vertical = Vector.displacement ul ur, Vector.displacement ul ll in
-        let width, height = Vector.len horizontal, Vector.len vertical in
         let ratio_x, ratio_y = float x /. float res_x, float y /. float res_y in
         Vector.(add ul (add (mult horizontal ratio_x) (mult vertical ratio_y)))
 
