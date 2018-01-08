@@ -21,6 +21,7 @@ module type VECTOR = sig
     val dist : t -> t -> float
     val len : t -> float
     val normalize : t -> t
+    val symmetric : t -> t -> t
 end
 
 module Vector : VECTOR = struct
@@ -44,6 +45,8 @@ module Vector : VECTOR = struct
         match v with
         V (x, y, z) -> let len = len v in
             V (x /. len, y /. len, z /. len)
+
+    let symmetric v ref = v (* TODO *)
 end
 
 let solve_quadratic_equation a b c =
@@ -57,6 +60,7 @@ module type SPHERE = sig
     type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option
+    val normal : Vector.t -> t -> Vector.t
 end
 
 module Sphere : SPHERE = struct
@@ -73,9 +77,11 @@ module Sphere : SPHERE = struct
             if x0 < 0. || x1 < 0. then None
             else let closer = min x0 x1 in
                 Some Vector.(add pos (mult dir closer))
+
+    let normal p (center, _, _, _) = Vector.(normalize (displacement center p))
 end
 
-let test_sphere_intersection =
+let test_sphere_intersection () =
     let open Vector in
     let pos, dir = create 0. 0. 0., create 50. 50. 50.
     and sph : Sphere.t = create 10. 10. 10., 10., Color.create 1 2 3, (1., 2., 3.) in
@@ -85,18 +91,22 @@ module type SURFACE = sig
     type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t * (float * float * float)      (* 4 vertexes, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option
+    val normal : Vector.t -> t -> Vector.t    
 end
 
 module Surface : SURFACE = struct
     type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t * (float * float * float)
 
     let intersection q w e = Some q (* TOOD *)
+    
+    let normal p ((ul, ur, lr, ll), _, _) = p (* TODO *)
 end
 
 module type OBJ = sig
     type t = Sph of Sphere.t | Surf of Surface.t
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
+    val normal : Vector.t -> t -> Vector.t
 end
 
 module Obj : OBJ = struct
@@ -105,6 +115,10 @@ module Obj : OBJ = struct
     let intersection pos dir = function
         Sph sph -> Sphere.intersection pos dir sph
         | Surf surf -> Surface.intersection pos dir surf
+
+    let normal p = function
+        Sph sph -> Sphere.normal p sph
+        | Surf surf -> Surface.normal p surf
 end
 
 let pixel_to_vector res_x res_y x y canvas_coords =
@@ -114,7 +128,7 @@ let pixel_to_vector res_x res_y x y canvas_coords =
         let ratio_x, ratio_y = float x /. float res_x, float y /. float res_y in
         Vector.(add ul (add (mult horizontal ratio_x) (mult vertical ratio_y)))
 
-let test_pixel_to_vector = let open Vector in
+let test_pixel_to_vector () = let open Vector in
     let res_x, res_y = 1000, 1000
     and x, y = 161, 415
     and canvas_coords = create 0. 0. 0., create 1000. 0. 0., create 1000. (-1000.) 0., create 0. (-1000.) 0. in
@@ -130,7 +144,7 @@ let closest_intersection pos dir objs =       (* camera pos -> camera dir -> obj
                 else aux closest dist tl in
     aux None infinity objs
 
-let color pos point obj = Color.create 1 2 3        (* TODO *)
+let color pos point obj objs = Color.create 1 2 3        (* TODO *)
 
 let render res_x res_y canvas_coords pos objs bg_color =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
@@ -140,6 +154,6 @@ let render res_x res_y canvas_coords pos objs bg_color =        (* returns list 
             else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
                 match closest_intersection pos dir objs with
                     None -> bg_color
-                    | Some (obj, point) -> color pos point obj :: aux_x (x + 1) in
+                    | Some (obj, point) -> color pos point obj objs :: aux_x (x + 1) in
             aux_x 0 :: aux_y (y + 1) in
     aux_y 0
