@@ -15,6 +15,7 @@ module type VECTOR = sig
 
     val create : float -> float -> float -> t
     val add : t -> t -> t
+    val subtract : t -> t -> t
     val displacement : t -> t -> t      (* displacement between 2 points *)
     val mult : t -> float -> t
     val dot_prod : t -> t -> float
@@ -31,7 +32,9 @@ module Vector : VECTOR = struct
 
     let add (V (x, y, z)) (V (x', y', z')) = V (x +. x', y +. y', z +. z')
 
-    let displacement (V (x, y, z)) (V (x', y', z')) = V (x' -. x, y' -. y, z' -. z)
+    let subtract (V (x, y, z)) (V (x', y', z')) = V (x -. x', y -. y', z -. z')    
+
+    let displacement v0 v1 = subtract v1 v0
 
     let mult (V (x, y, z)) c = V (x *. c, y *. c, z *. c)
 
@@ -46,8 +49,15 @@ module Vector : VECTOR = struct
         V (x, y, z) -> let len = len v in
             V (x /. len, y /. len, z /. len)
 
-    let symmetric v ref = v (* TODO *)
+    let symmetric v ref =
+        let ref_norm = normalize ref in
+        subtract v (mult ref_norm (2. *. dot_prod v ref_norm))
 end
+
+let test_vector_symmetric () =
+    let v = Vector.create 0. 1. 0.
+    and ref = Vector.create (-1.) (-1.) 0. in
+    Vector. symmetric v ref
 
 let solve_quadratic_equation a b c =
     let delta = b*.b -. 4.*.a*.c in
