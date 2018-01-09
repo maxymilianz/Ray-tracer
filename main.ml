@@ -25,6 +25,14 @@ module type VECTOR = sig
     val symmetric : t -> t -> t
 end
 
+module type LIGHT = sig
+    type t = Point of Vector.t | Sun of Vector.t        (* Vector.t in Point is position and in Sun - direction *)
+end
+
+module Light : LIGHT = struct
+    type t = Point of Vector.t | Sun of Vector.t
+end
+
 module Vector : VECTOR = struct
     type t = V of float * float * float
 
@@ -154,7 +162,7 @@ let closest_intersection pos dir objs =       (* camera pos -> camera dir -> obj
                 else aux closest dist tl in
     aux None infinity objs
 
-let color pos point obj objs = Color.create 1 2 3        (* TODO *)
+let color pos point obj objs = (* TODO *)
 
 let render res_x res_y canvas_coords pos objs bg_color =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
