@@ -1,13 +1,25 @@
 module type COLOR = sig
-    type t = int * int * int        (* (r, g, b) *)
+    type t = C of int * int * int        (* (r, g, b) *)
 
+    val black : t
     val create : int -> int -> int -> t
+    val mult : t -> float -> t
+    val add : t -> t -> t
+    val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple should sum up to 1 as this is ratio *)
 end
 
 module Color : COLOR = struct
-    type t = int * int * int
+    type t = C of int * int * int
 
-    let create r g b = (r, g, b)
+    let black = C (0, 0, 0)
+
+    let create r g b = C (r, g, b)
+
+    let mult (C (r, g, b)) c = C (int_of_float (float r*.c), int_of_float (float g*.c), int_of_float (float b*.c))
+
+    let add (C (r, g, b)) (C (r', g', b')) = C (r+r', g+g', b+b')
+
+    let mix3 color0 color1 color2 (ratio0, ratio1, ratio2) = add (mult color0 ratio0) (add (mult color1 ratio1) (mult color2 ratio2))
 end
 
 module type VECTOR = sig
@@ -23,14 +35,6 @@ module type VECTOR = sig
     val len : t -> float
     val normalize : t -> t
     val symmetric : t -> t -> t
-end
-
-module type LIGHT = sig
-    type t = Point of Vector.t | Sun of Vector.t        (* Vector.t in Point is position and in Sun - direction *)
-end
-
-module Light : LIGHT = struct
-    type t = Point of Vector.t | Sun of Vector.t
 end
 
 module Vector : VECTOR = struct
@@ -60,6 +64,14 @@ module Vector : VECTOR = struct
     let symmetric v ref =
         let ref_norm = normalize ref in
         subtract v (mult ref_norm (2. *. dot_prod v ref_norm))
+end
+
+module type LIGHT = sig
+    type t = Point of Vector.t | Sun of Vector.t        (* Vector.t in Point is position and in Sun - direction *)
+end
+
+module Light : LIGHT = struct
+    type t = Point of Vector.t | Sun of Vector.t
 end
 
 let test_vector_symmetric () =
@@ -125,7 +137,6 @@ module type OBJ = sig
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
     val normal : Vector.t -> t -> Vector.t
-    val color : t -> Color.t
     val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> Color.t
 end
 
@@ -143,11 +154,20 @@ module Obj : OBJ = struct
     let color = function
         Sph (_, _, color, _) -> color
         | Surf (_, color, _) -> color
+    
+    let color_reflected point obj objs lights = Color.black (* TODO *)
+
+    let color_lighted point obj objs lights = Color.black (* TODO *)
+
+    let color_ratio = function
+        Sph (_, _, _, color_ratio) -> color_ratio
+        | Surf (_, _, color_ratio) -> color_ratio
 
     let resultant_color pos point obj objs lights =
-        let color = color obj
-        and relfection = Vector.(normalize (symmetric (displacement pos point) (normal point obj))) in
-        color       (* TODO *)
+        let color, (glow, refl, scat) = color obj, color_ratio obj in
+        let glowed = if glow = 0. then Color.black else color
+        and reflected = if refl = 0. then Color.black else color_reflected point obj objs lights
+        and scattered = if scat = 0. then Color.black else color_lighted point obj objs lights
 end
 
 let pixel_to_vector res_x res_y x y canvas_coords =
