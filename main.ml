@@ -125,6 +125,8 @@ module type OBJ = sig
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
     val normal : Vector.t -> t -> Vector.t
+    val color : t -> Color.t
+    val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> Color.t
 end
 
 module Obj : OBJ = struct
@@ -137,6 +139,15 @@ module Obj : OBJ = struct
     let normal p = function
         Sph sph -> Sphere.normal p sph
         | Surf surf -> Surface.normal p surf
+
+    let color = function
+        Sph (_, _, color, _) -> color
+        | Surf (_, color, _) -> color
+
+    let resultant_color pos point obj objs lights =
+        let color = color obj
+        and relfection = Vector.(normalize (symmetric (displacement pos point) (normal point obj))) in
+        color       (* TODO *)
 end
 
 let pixel_to_vector res_x res_y x y canvas_coords =
@@ -162,9 +173,7 @@ let closest_intersection pos dir objs =       (* camera pos -> camera dir -> obj
                 else aux closest dist tl in
     aux None infinity objs
 
-let color pos point obj objs = (* TODO *)
-
-let render res_x res_y canvas_coords pos objs bg_color =        (* returns list of lists of colors (res_y * res_x) *)
+let render res_x res_y canvas_coords pos objs lights bg_color =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
         if y = res_y then []
         else let rec aux_x x =
@@ -172,6 +181,6 @@ let render res_x res_y canvas_coords pos objs bg_color =        (* returns list 
             else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
                 match closest_intersection pos dir objs with
                     None -> bg_color
-                    | Some (obj, point) -> color pos point obj objs :: aux_x (x + 1) in
+                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights :: aux_x (x + 1) in
             aux_x 0 :: aux_y (y + 1) in
     aux_y 0
