@@ -5,7 +5,7 @@ module type COLOR = sig
     val create : int -> int -> int -> t
     val mult : t -> float -> t
     val add : t -> t -> t
-    val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple should sum up to 1 as this is ratio *)
+    val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple don't have to sum up to 1 as this is ratio (missing part is absorbed) *)
 end
 
 module Color : COLOR = struct
@@ -118,18 +118,18 @@ let test_sphere_intersection () =
     Sphere.intersection pos dir sph
 
 module type SURFACE = sig
-    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t * (float * float * float)      (* 4 vertexes, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
+    type t = Vector.t * Color.t * (float * float * float)      (* 4 vertexes, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option
     val normal : Vector.t -> t -> Vector.t    
 end
 
 module Surface : SURFACE = struct
-    type t = (Vector.t * Vector.t * Vector.t * Vector.t) * Color.t * (float * float * float)
+    type t = Vector.t * Color.t * (float * float * float)
 
     let intersection q w e = Some q (* TOOD *)
     
-    let normal p ((ul, ur, lr, ll), _, _) = p (* TODO *)
+    let normal _ (n, _, _) = n
 end
 
 module type OBJ = sig
@@ -167,7 +167,8 @@ module Obj : OBJ = struct
         let color, (glow, refl, scat) = color obj, color_ratio obj in
         let glowed = if glow = 0. then Color.black else color
         and reflected = if refl = 0. then Color.black else color_reflected point obj objs lights
-        and scattered = if scat = 0. then Color.black else color_lighted point obj objs lights
+        and scattered = if scat = 0. then Color.black else color_lighted point obj objs lights in
+        Color.(mix3 glowed reflected scattered (glow, refl, scat))
 end
 
 let pixel_to_vector res_x res_y x y canvas_coords =
