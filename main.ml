@@ -77,7 +77,7 @@ end
 let test_vector_symmetric () =
     let v = Vector.create 0. 1. 0.
     and ref = Vector.create (-1.) (-1.) 0. in
-    Vector. symmetric v ref
+    Vector.symmetric v ref
 
 let solve_quadratic_equation a b c =
     let delta = b*.b -. 4.*.a*.c in
@@ -118,19 +118,31 @@ let test_sphere_intersection () =
     Sphere.intersection pos dir sph
 
 module type SURFACE = sig
-    type t = Vector.t * Color.t * (float * float * float)      (* 4 vertexes, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
+    type t = Vector.t * Vector.t * Color.t * (float * float * float)      (* normal, point on surface, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option
     val normal : Vector.t -> t -> Vector.t    
 end
 
 module Surface : SURFACE = struct
-    type t = Vector.t * Color.t * (float * float * float)
+    type t = Vector.t * Vector.t * Color.t * (float * float * float)
 
-    let intersection q w e = Some q (* TOOD *)
+    let intersection pos dir (normal, point, _, _) =        (* res_coeff = (point - pos) * normal / (dir * normal) *)
+        let denominator = Vector.dot_prod dir normal in
+        if denominator = 0. then None
+        else let nominator = Vector.(dot_prod (subtract point pos) normal) in
+            let coeff = nominator /. denominator in
+            if coeff < 0. then None
+            else Some Vector.(add pos (mult dir coeff))
     
-    let normal _ (n, _, _) = n
+    let normal _ (normal, _, _, _) = normal
 end
+
+let test_surface_intersection () =
+    let open Vector in
+    let pos, dir = create 0. 1. 0., create 2. (-1.) 0.
+    and surf : Surface.t = create 0. 1. 0., create 0. 0. 0., Color.black, (1., 1., 1.) in
+    Surface.intersection pos dir surf
 
 module type OBJ = sig
     type t = Sph of Sphere.t | Surf of Surface.t
@@ -153,7 +165,7 @@ module Obj : OBJ = struct
 
     let color = function
         Sph (_, _, color, _) -> color
-        | Surf (_, color, _) -> color
+        | Surf (_, _, color, _) -> color
     
     let color_reflected point obj objs lights = Color.black (* TODO *)
 
@@ -161,7 +173,7 @@ module Obj : OBJ = struct
 
     let color_ratio = function
         Sph (_, _, _, color_ratio) -> color_ratio
-        | Surf (_, _, color_ratio) -> color_ratio
+        | Surf (_, _, _, color_ratio) -> color_ratio
 
     let resultant_color pos point obj objs lights =
         let color, (glow, refl, scat) = color obj, color_ratio obj in
