@@ -1,23 +1,23 @@
 module type COLOR = sig
-    type t = C of int * int * int        (* (r, g, b) *)
+    type t = C of float * float * float        (* (r, g, b) *)
 
     val black : t
-    val create : int -> int -> int -> t
+    val create : float -> float -> float -> t
     val mult : t -> float -> t
     val add : t -> t -> t
-    val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple don't have to sum up to 1 as this is ratio (missing part is absorbed) *)
+    val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple doesn't have to sum up to 1 as this is ratio (missing part is absorbed) *)
 end
 
 module Color : COLOR = struct
-    type t = C of int * int * int
+    type t = C of float * float * float
 
-    let black = C (0, 0, 0)
+    let black = C (0., 0., 0.)
 
     let create r g b = C (r, g, b)
 
-    let mult (C (r, g, b)) c = C (int_of_float (float r*.c), int_of_float (float g*.c), int_of_float (float b*.c))
+    let mult (C (r, g, b)) c = C (r*.c, g*.c, b*.c)
 
-    let add (C (r, g, b)) (C (r', g', b')) = C (r+r', g+g', b+b')
+    let add (C (r, g, b)) (C (r', g', b')) = C (r+.r', g+.g', b+.b')
 
     let mix3 color0 color1 color2 (ratio0, ratio1, ratio2) = add (mult color0 ratio0) (add (mult color1 ratio1) (mult color2 ratio2))
 end
@@ -114,7 +114,7 @@ end
 let test_sphere_intersection () =
     let open Vector in
     let pos, dir = create 0. 0. 0., create 50. 50. 50.
-    and sph : Sphere.t = create 10. 10. 10., 10., Color.create 1 2 3, (1., 2., 3.) in
+    and sph : Sphere.t = create 10. 10. 10., 10., Color.black, (1., 2., 3.) in
     Sphere.intersection pos dir sph
 
 module type SURFACE = sig
