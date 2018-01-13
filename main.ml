@@ -150,6 +150,7 @@ module type OBJ = sig
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
     val normal : Vector.t -> t -> Vector.t
     val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> Color.t
+    val closest_intersection : Vector.t -> Vector.t -> t list -> (t * Vector.t) option
 end
 
 module Obj : OBJ = struct
@@ -181,6 +182,16 @@ module Obj : OBJ = struct
         and reflected = if refl = 0. then Color.black else color_reflected point obj objs lights
         and scattered = if scat = 0. then Color.black else color_lighted point obj objs lights in
         Color.(mix3 glowed reflected scattered (glow, refl, scat))
+
+    let closest_intersection pos dir objs =       (* camera pos -> camera dir -> objs -> optional object and point of intersection *)
+        let rec aux closest dist = function     (* optional current closest object and point -> dist (not optional; None => infinity) -> same return type as above *)
+            [] -> closest
+            | hd :: tl -> match intersection pos dir hd with      (* this match checks if ray from camera intersects with obj *)
+                None -> aux closest dist tl
+                | Some point -> let new_dist = Vector.dist pos point in
+                    if new_dist < dist then aux (Some (hd, point)) new_dist tl
+                    else aux closest dist tl in
+        aux None infinity objs
 end
 
 let pixel_to_vector res_x res_y x y canvas_coords =
@@ -196,23 +207,13 @@ let test_pixel_to_vector () = let open Vector in
     and canvas_coords = create 0. 0. 0., create 1000. 0. 0., create 1000. (-1000.) 0., create 0. (-1000.) 0. in
     pixel_to_vector res_x res_y x y canvas_coords
 
-let closest_intersection pos dir objs =       (* camera pos -> camera dir -> objs -> optional object and point of intersection *)
-    let rec aux closest dist = function     (* optional current closest object and point -> dist (not optional; None => infinity) -> same return type as above *)
-        [] -> closest
-        | hd :: tl -> match Obj.intersection pos dir hd with      (* this match checks if ray from camera intersects with obj *)
-            None -> aux closest dist tl
-            | Some point -> let new_dist = Vector.dist pos point in
-                if new_dist < dist then aux (Some (hd, point)) new_dist tl
-                else aux closest dist tl in
-    aux None infinity objs
-
 let render res_x res_y canvas_coords pos objs lights bg_color =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
         if y = res_y then []
         else let rec aux_x x =
             if x = res_x then []
             else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
-                match closest_intersection pos dir objs with
+                match Obj.closest_intersection pos dir objs with
                     None -> bg_color
                     | Some (obj, point) -> Obj.resultant_color pos point obj objs lights :: aux_x (x + 1) in
             aux_x 0 :: aux_y (y + 1) in
