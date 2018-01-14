@@ -67,11 +67,11 @@ module Vector : VECTOR = struct
 end
 
 module type LIGHT = sig
-    type t = Point of Vector.t | Sun of Vector.t        (* Vector.t in Point is position and in Sun - direction *)
+    type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
 end
 
 module Light : LIGHT = struct
-    type t = Point of Vector.t | Sun of Vector.t
+    type t = Point of Vector.t * float | Sun of Vector.t * float
 end
 
 let test_vector_symmetric () =
@@ -149,7 +149,7 @@ module type OBJ = sig
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
     val normal : Vector.t -> t -> Vector.t
-    val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> Color.t
+    val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> int -> Color.t
     val closest_intersection : Vector.t -> Vector.t -> t list -> (t * Vector.t) option
 end
 
@@ -176,7 +176,7 @@ module Obj : OBJ = struct
         Sph (_, _, _, color_ratio) -> color_ratio
         | Surf (_, _, _, color_ratio) -> color_ratio
 
-    let resultant_color pos point obj objs lights =
+    let resultant_color pos point obj objs lights rec_depth =
         let color, (glow, refl, scat) = color obj, color_ratio obj in
         let glowed = if glow = 0. then Color.black else color
         and reflected = if refl = 0. then Color.black else color_reflected point obj objs lights
@@ -207,7 +207,7 @@ let test_pixel_to_vector () = let open Vector in
     and canvas_coords = create 0. 0. 0., create 1000. 0. 0., create 1000. (-1000.) 0., create 0. (-1000.) 0. in
     pixel_to_vector res_x res_y x y canvas_coords
 
-let render res_x res_y canvas_coords pos objs lights bg_color =        (* returns list of lists of colors (res_y * res_x) *)
+let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
         if y = res_y then []
         else let rec aux_x x =
@@ -215,6 +215,6 @@ let render res_x res_y canvas_coords pos objs lights bg_color =        (* return
             else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
                 match Obj.closest_intersection pos dir objs with
                     None -> bg_color
-                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights :: aux_x (x + 1) in
+                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights rec_depth :: aux_x (x + 1) in
             aux_x 0 :: aux_y (y + 1) in
     aux_y 0
