@@ -32,9 +32,11 @@ module type VECTOR = sig
     val mult : t -> float -> t
     val dot_prod : t -> t -> float
     val dist : t -> t -> float
+    val dist_sq : t -> t -> float
     val len : t -> float
     val normalize : t -> t
     val symmetric : t -> t -> t
+    val opposite : t -> t
 end
 
 module Vector : VECTOR = struct
@@ -54,6 +56,8 @@ module Vector : VECTOR = struct
 
     let dist (V (x, y, z)) (V (x', y', z')) = let dx = x -. x' and dy = y -. y' and dz = z -. z' in sqrt (dx*.dx +. dy*.dy +. dz*.dz)
 
+    let dist_sq (V (x, y, z)) (V (x', y', z')) = let dx = x -. x' and dy = y -. y' and dz = z -. z' in dx*.dx +. dy*.dy +. dz*.dz
+
     let len v = dist (V (0., 0., 0.)) v
 
     let normalize v =
@@ -64,6 +68,8 @@ module Vector : VECTOR = struct
     let symmetric v ref =       (* TODO THIS DOESN'T WORK *)
         let ref_norm = normalize ref in
         subtract v (mult ref_norm (2. *. dot_prod v ref_norm))
+
+    let opposite (V (x, y, z)) = V (-.x, -.y, -.z)
 end
 
 let test_vector_symmetric () =
@@ -73,10 +79,28 @@ let test_vector_symmetric () =
 
 module type LIGHT = sig
     type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
+
+    val max_intensity : float
+    val min_intensity : float
+    val intensity : Vector.t -> t -> float
+    val valid_intensity : float -> float
 end
 
 module Light : LIGHT = struct
     type t = Point of Vector.t * float | Sun of Vector.t * float
+
+    let max_intensity = 1.
+
+    let min_intensity = 0.1
+
+    let intensity pos = function
+        Point (pos', intensity) -> min max_intensity (1. /. Vector.dist_sq pos pos')
+        | Sun (_, intensity) -> min max_intensity intensity
+
+    let valid_intensity intensity =
+        if intensity < min_intensity then min_intensity
+        else if intensity > max_intensity then max_intensity
+        else intensity
 end
 
 let solve_quadratic_equation a b c =
@@ -174,7 +198,26 @@ module Obj : OBJ = struct
         None -> bg_color
         | Some (obj, point') -> resultant_color point point' obj objs lights bg_color rec_depth
 
-    and color_lighted point obj objs lights = Color.black
+    and color_lighted point obj objs lights =
+        let rec intensity light =
+            match light with
+            Light.Point (pos, intensity) ->
+                (match closest_intersection point (Vector.displacement point pos) objs with
+                None -> Some (Light.intensity point light)
+                | Some (obj, point') ->
+                    if Vector.(dist point pos > dist point point') then None
+                    else Some (Light.intensity point light))
+            | Light.Sun (dir, intensity) ->
+                (match closest_intersection point (Vector.opposite dir) objs with
+                None -> Some (Light.intensity point light)
+                | _ -> None) in
+        let rec aux current_intensity = function
+            [] -> current_intensity
+            | hd :: tl -> match intensity hd with
+                None -> aux current_intensity tl
+                | Some intensity -> aux (current_intensity +. intensity) tl in
+        let final_intensity = Light.valid_intensity (aux Light.min_intensity lights) in
+        Color.mult (color obj) final_intensity
 
     and color_ratio = function
         Sph (_, _, _, color_ratio) -> color_ratio
