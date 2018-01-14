@@ -1,11 +1,18 @@
+let solve_quadratic_equation a b c =        (* ax^2 + bx + c = 0 *)
+    let delta = b*.b -. 4.*.a*.c in
+    if delta < 0. then None
+    else Some ((-.b +. sqrt delta) /. (2.*.a), (-.b -. sqrt delta) /. (2.*.a))
+
 module type COLOR = sig
     type t = C of float * float * float        (* (r, g, b) *)
 
     val black : t
     val create : float -> float -> float -> t
-    val mult : t -> float -> t
+
     val add : t -> t -> t
-    val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple doesn't have to sum up to 1 as this is ratio (missing part is absorbed) *)
+    val mult : t -> float -> t
+
+    val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple <= 0 *)
 end
 
 module Color : COLOR = struct
@@ -15,9 +22,9 @@ module Color : COLOR = struct
 
     let create r g b = C (r, g, b)
 
-    let mult (C (r, g, b)) c = C (r*.c, g*.c, b*.c)
-
     let add (C (r, g, b)) (C (r', g', b')) = C (r+.r', g+.g', b+.b')
+
+    let mult (C (r, g, b)) c = C (r*.c, g*.c, b*.c)
 
     let mix3 color0 color1 color2 (ratio0, ratio1, ratio2) = add (mult color0 ratio0) (add (mult color1 ratio1) (mult color2 ratio2))
 end
@@ -26,16 +33,20 @@ module type VECTOR = sig
     type t = V of float * float * float
 
     val create : float -> float -> float -> t
+
     val add : t -> t -> t
     val subtract : t -> t -> t
-    val displacement : t -> t -> t      (* displacement between 2 points *)
+    val displacement : t -> t -> t
     val mult : t -> float -> t
+
     val dot_prod : t -> t -> float
-    val dist : t -> t -> float
+    
     val dist_sq : t -> t -> float
+    val dist : t -> t -> float
     val len : t -> float
+    
     val normalize : t -> t
-    val symmetric : t -> t -> t
+    val symmetric : t -> t -> t -> t        (* point to reflect -> dir -> dir anchorage point -> reflected point *)
     val opposite : t -> t
 end
 
@@ -54,9 +65,9 @@ module Vector : VECTOR = struct
 
     let dot_prod (V (x, y, z)) (V (x', y', z')) = x*.x' +. y*.y' +. z*.z'
 
-    let dist (V (x, y, z)) (V (x', y', z')) = let dx = x -. x' and dy = y -. y' and dz = z -. z' in sqrt (dx*.dx +. dy*.dy +. dz*.dz)
-
     let dist_sq (V (x, y, z)) (V (x', y', z')) = let dx = x -. x' and dy = y -. y' and dz = z -. z' in dx*.dx +. dy*.dy +. dz*.dz
+
+    let dist v0 v1 = sqrt (dist_sq v0 v1)
 
     let len v = dist (V (0., 0., 0.)) v
 
@@ -65,9 +76,7 @@ module Vector : VECTOR = struct
         V (x, y, z) -> let len = len v in
             V (x /. len, y /. len, z /. len)
 
-    let symmetric v ref =       (* TODO THIS DOESN'T WORK *)
-        let ref_norm = normalize ref in
-        subtract v (mult ref_norm (2. *. dot_prod v ref_norm))
+    let symmetric p dir anchor = anchor     (* TODO *)
 
     let opposite (V (x, y, z)) = V (-.x, -.y, -.z)
 end
@@ -82,6 +91,7 @@ module type LIGHT = sig
 
     val max_intensity : float
     val min_intensity : float
+   
     val intensity : Vector.t -> t -> float
     val valid_intensity : float -> float
 end
@@ -103,17 +113,10 @@ module Light : LIGHT = struct
         else intensity
 end
 
-let solve_quadratic_equation a b c =
-    let delta = b*.b -. 4.*.a*.c in
-    if delta < 0. then None
-    else Some ((-.b +. sqrt delta) /. (2.*.a), (-.b -. sqrt delta) /. (2.*.a))
-
-let min a b = if a < b then a else b
-
 module type SPHERE = sig
-    type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
+    type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) ratio <= 1 *)
 
-    val intersection : Vector.t -> Vector.t -> t -> Vector.t option
+    val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> sphere -> optional intersection point *)
     val normal : Vector.t -> t -> Vector.t
 end
 
@@ -142,16 +145,16 @@ let test_sphere_intersection () =
     Sphere.intersection pos dir sph
 
 module type SURFACE = sig
-    type t = Vector.t * Vector.t * Color.t * (float * float * float)      (* normal, point on surface, color and (glowing, reflecting, scattering) which should sum up to 1.0 *)
+    type t = Vector.t * Vector.t * Color.t * (float * float * float)      (* normal, point on surface, color and (glowing, reflecting, scattering) ratio <= 1 *)
 
-    val intersection : Vector.t -> Vector.t -> t -> Vector.t option
-    val normal : Vector.t -> t -> Vector.t    
+    val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> surface -> optional intersection point *)
+    val normal : t -> Vector.t    
 end
 
 module Surface : SURFACE = struct
     type t = Vector.t * Vector.t * Color.t * (float * float * float)
 
-    let intersection pos dir (normal, point, _, _) =        (* res_coeff = (point - pos) * normal / (dir * normal) *)
+    let intersection pos dir (normal, point, _, _) =
         let denominator = Vector.dot_prod dir normal in
         if denominator = 0. then None
         else let nominator = Vector.(dot_prod (subtract point pos) normal) in
@@ -159,7 +162,7 @@ module Surface : SURFACE = struct
             if coeff < 0. then None
             else Some Vector.(add pos (mult dir coeff))
     
-    let normal _ (normal, _, _, _) = normal
+    let normal (normal, _, _, _) = normal
 end
 
 let test_surface_intersection () =
@@ -173,7 +176,11 @@ module type OBJ = sig
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
     val normal : Vector.t -> t -> Vector.t
+    
+    (* camera pos -> intersection point -> obj -> objs -> lights -> bg color -> remaining recursion depth -> color *)
     val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> Color.t -> int -> Color.t
+    
+    (* camera pos -> camera dir -> objs -> optional intersection point *)
     val closest_intersection : Vector.t -> Vector.t -> t list -> (t * Vector.t) option
 end
 
@@ -186,14 +193,14 @@ module Obj : OBJ = struct
 
     let normal p = function
         Sph sph -> Sphere.normal p sph
-        | Surf surf -> Surface.normal p surf
+        | Surf surf -> Surface.normal surf
 
     let color = function
         Sph (_, _, color, _) -> color
         | Surf (_, _, color, _) -> color
     
     let rec color_reflected pos point obj objs lights bg_color rec_depth =
-        let dir = Vector.(displacement point (symmetric pos (normal point obj))) in
+        let dir = Vector.(displacement point (symmetric pos (normal point obj) point)) in
         match closest_intersection point dir objs with
         None -> bg_color
         | Some (obj, point') -> resultant_color point point' obj objs lights bg_color rec_depth
