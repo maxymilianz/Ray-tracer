@@ -61,10 +61,15 @@ module Vector : VECTOR = struct
         V (x, y, z) -> let len = len v in
             V (x /. len, y /. len, z /. len)
 
-    let symmetric v ref =
+    let symmetric v ref =       (* TODO THIS DOESN'T WORK *)
         let ref_norm = normalize ref in
         subtract v (mult ref_norm (2. *. dot_prod v ref_norm))
 end
+
+let test_vector_symmetric () =
+    let v = Vector.create 0. 1. 0.
+    and ref = Vector.create (10.) (10.) 0. in
+    Vector.symmetric v ref
 
 module type LIGHT = sig
     type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
@@ -73,11 +78,6 @@ end
 module Light : LIGHT = struct
     type t = Point of Vector.t * float | Sun of Vector.t * float
 end
-
-let test_vector_symmetric () =
-    let v = Vector.create 0. 1. 0.
-    and ref = Vector.create (-1.) (-1.) 0. in
-    Vector.symmetric v ref
 
 let solve_quadratic_equation a b c =
     let delta = b*.b -. 4.*.a*.c in
@@ -149,7 +149,7 @@ module type OBJ = sig
 
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
     val normal : Vector.t -> t -> Vector.t
-    val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> int -> Color.t
+    val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> Color.t -> int -> Color.t
     val closest_intersection : Vector.t -> Vector.t -> t list -> (t * Vector.t) option
 end
 
@@ -168,22 +168,26 @@ module Obj : OBJ = struct
         Sph (_, _, color, _) -> color
         | Surf (_, _, color, _) -> color
     
-    let color_reflected point obj objs lights = Color.black (* TODO *)
+    let rec color_reflected pos point obj objs lights bg_color rec_depth =
+        let dir = Vector.(displacement point (symmetric pos (normal point obj))) in
+        match closest_intersection point dir objs with
+        None -> bg_color
+        | Some (obj, point') -> resultant_color point point' obj objs lights bg_color rec_depth
 
-    let color_lighted point obj objs lights = Color.black (* TODO *)
+    and color_lighted point obj objs lights = Color.black
 
-    let color_ratio = function
+    and color_ratio = function
         Sph (_, _, _, color_ratio) -> color_ratio
         | Surf (_, _, _, color_ratio) -> color_ratio
 
-    let resultant_color pos point obj objs lights rec_depth =
+    and resultant_color pos point obj objs lights bg_color rec_depth =
         let color, (glow, refl, scat) = color obj, color_ratio obj in
         let glowed = if glow = 0. then Color.black else color
-        and reflected = if refl = 0. then Color.black else color_reflected point obj objs lights
+        and reflected = if refl = 0. || rec_depth = 0 then Color.black else color_reflected pos point obj objs lights bg_color (rec_depth - 1)
         and scattered = if scat = 0. then Color.black else color_lighted point obj objs lights in
-        Color.(mix3 glowed reflected scattered (glow, refl, scat))
+        Color.mix3 glowed reflected scattered (glow, refl, scat)
 
-    let closest_intersection pos dir objs =       (* camera pos -> camera dir -> objs -> optional object and point of intersection *)
+    and closest_intersection pos dir objs =       (* camera pos -> camera dir -> objs -> optional object and point of intersection *)
         let rec aux closest dist = function     (* optional current closest object and point -> dist (not optional; None => infinity) -> same return type as above *)
             [] -> closest
             | hd :: tl -> match intersection pos dir hd with      (* this match checks if ray from camera intersects with obj *)
@@ -213,8 +217,8 @@ let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =       
         else let rec aux_x x =
             if x = res_x then []
             else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
-                match Obj.closest_intersection pos dir objs with
+                (match Obj.closest_intersection pos dir objs with
                     None -> bg_color
-                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights rec_depth :: aux_x (x + 1) in
+                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x (x + 1) in
             aux_x 0 :: aux_y (y + 1) in
     aux_y 0
