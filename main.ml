@@ -46,7 +46,7 @@ module type VECTOR = sig
     val len : t -> float
     
     val normalize : t -> t
-    val symmetric : t -> t -> t -> t        (* point to reflect -> dir -> dir anchorage point -> reflected point *)
+    val symmetric : t -> t -> t -> t        (* point to reflect -> dir anchorage point -> dir -> reflected point *)
     val opposite : t -> t
 end
 
@@ -76,7 +76,7 @@ module Vector : VECTOR = struct
         V (x, y, z) -> let len = len v in
             V (x /. len, y /. len, z /. len)
 
-    let symmetric p dir anchor = anchor     (* TODO *)
+    let symmetric p anchor dir = anchor     (* TODO *)
 
     let opposite (V (x, y, z)) = V (-.x, -.y, -.z)
 end
@@ -198,9 +198,13 @@ module Obj : OBJ = struct
     let color = function
         Sph (_, _, color, _) -> color
         | Surf (_, _, color, _) -> color
+
+    let color_ratio = function
+        Sph (_, _, _, color_ratio) -> color_ratio
+        | Surf (_, _, _, color_ratio) -> color_ratio
     
     let rec color_reflected pos point obj objs lights bg_color rec_depth =
-        let dir = Vector.(displacement point (symmetric pos (normal point obj) point)) in
+        let dir = Vector.(displacement point (symmetric pos point (normal point obj))) in
         match closest_intersection point dir objs with
         None -> bg_color
         | Some (obj, point') -> resultant_color point point' obj objs lights bg_color rec_depth
@@ -223,16 +227,12 @@ module Obj : OBJ = struct
             | hd :: tl -> match intensity hd with
                 None -> aux current_intensity tl
                 | Some intensity -> aux (current_intensity +. intensity) tl in
-        let final_intensity = Light.valid_intensity (aux Light.min_intensity lights) in
+        let final_intensity = Light.valid_intensity (aux 0. lights) in
         Color.mult (color obj) final_intensity
 
-    and color_ratio = function
-        Sph (_, _, _, color_ratio) -> color_ratio
-        | Surf (_, _, _, color_ratio) -> color_ratio
-
     and resultant_color pos point obj objs lights bg_color rec_depth =
-        let color, (glow, refl, scat) = color obj, color_ratio obj in
-        let glowed = if glow = 0. then Color.black else color
+        let glow, refl, scat = color_ratio obj in
+        let glowed = if glow = 0. then Color.black else color obj
         and reflected = if refl = 0. || rec_depth = 0 then Color.black else color_reflected pos point obj objs lights bg_color (rec_depth - 1)
         and scattered = if scat = 0. then Color.black else color_lighted point obj objs lights in
         Color.mix3 glowed reflected scattered (glow, refl, scat)
@@ -248,12 +248,10 @@ module Obj : OBJ = struct
         aux None infinity objs
 end
 
-let pixel_to_vector res_x res_y x y canvas_coords =
-    (* canvas_coords is tuple of upper left, upper right, lower right and lower left Vectors *)
-    match canvas_coords with
-    ul, ur, lr, ll -> let horizontal, vertical = Vector.displacement ul ur, Vector.displacement ul ll in
-        let ratio_x, ratio_y = float x /. float res_x, float y /. float res_y in
-        Vector.(add ul (add (mult horizontal ratio_x) (mult vertical ratio_y)))
+let pixel_to_vector res_x res_y x y (ul, ur, lr, ll) =      (* TODO I should create a pixel -> vector dict rather than computer vector for each pixel *)
+    let horizontal, vertical = Vector.displacement ul ur, Vector.displacement ul ll in
+    let ratio_x, ratio_y = float x /. float res_x, float y /. float res_y in
+    Vector.(add ul (add (mult horizontal ratio_x) (mult vertical ratio_y)))
 
 let test_pixel_to_vector () = let open Vector in
     let res_x, res_y = 1000, 1000
