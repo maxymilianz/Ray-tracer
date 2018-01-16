@@ -38,6 +38,7 @@ module type VECTOR = sig
     val subtract : t -> t -> t
     val displacement : t -> t -> t
     val mult : t -> float -> t
+    val div : t -> float -> t
 
     val dot_prod : t -> t -> float
     
@@ -62,6 +63,8 @@ module Vector : VECTOR = struct
     let displacement v0 v1 = subtract v1 v0
 
     let mult (V (x, y, z)) c = V (x *. c, y *. c, z *. c)
+
+    let div (V (x, y, z)) c = V (x /. c, y /. c, z /. c)    
 
     let dot_prod (V (x, y, z)) (V (x', y', z')) = x*.x' +. y*.y' +. z*.z'
 
@@ -252,7 +255,7 @@ module Obj : OBJ = struct
         aux None infinity objs
 end
 
-let pixel_to_vector res_x res_y x y (ul, ur, lr, ll) =      (* TODO I should create a pixel -> vector dict rather than computer vector for each pixel *)
+let pixel_to_vector res_x res_y x y (ul, ur, lr, ll) =
     let horizontal, vertical = Vector.displacement ul ur, Vector.displacement ul ll in
     let ratio_x, ratio_y = float x /. float res_x, float y /. float res_y in
     Vector.(add ul (add (mult horizontal ratio_x) (mult vertical ratio_y)))
@@ -264,9 +267,16 @@ let test_pixel_to_vector () = let open Vector in
     pixel_to_vector res_x res_y x y canvas_coords
 
 let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
-    let open Hashtbl in
-    let hashtable = create (res_x * res_y) in
-    1
+    let horizontal, vertical = Vector.(displacement ul ur, displacement ul ll) in
+    let step_x, step_y = Vector.(div horizontal (float res_x), div vertical (float res_y)) in
+    let rec aux_y current_vector y =
+        if y = res_y then []
+        else let rec aux_x current_vector x =
+            if x = res_x then []
+            else let pos = Vector.add current_vector step_x in
+                pos :: aux_x pos (x + 1) in
+            aux_x current_vector 0 :: aux_y (Vector.add current_vector step_y) (y + 1) in
+    aux_y ul 0
 
 let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
