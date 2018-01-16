@@ -19,6 +19,8 @@ module type COLOR = sig
     val from_int : int -> int -> int -> t
 
     val max_int : int
+
+    val to_graphics_color : t -> int
 end
 
 module Color : COLOR = struct
@@ -43,6 +45,10 @@ module Color : COLOR = struct
     let from_int r g b = div (C (float r, float g, float b)) 256.
 
     let max_int = 255
+
+    let to_graphics_color c =
+        let r, g, b = to_int c in
+        (r lsl 16) lor (g lsl 8) lor b
 end
 
 module type VECTOR = sig
@@ -328,3 +334,23 @@ let to_file filename res_x res_y pixels =
             aux_x hd :: aux_y tl in
     aux_y pixels;
     close_out stream
+
+let pixels_to_image res_x res_y pixels =
+    let open Graphics in
+    let color_array = Array.init res_y (fun i -> Array.make res_x 0) in
+    let rec aux_y y = function
+        [] -> []
+        | hd :: tl ->
+            let rec aux_x x = function
+                [] -> []
+                | hd :: tl -> (color_array.(y).(x) <- Color.to_graphics_color hd) :: aux_x (x + 1) tl in
+            aux_x 0 hd :: aux_y (y + 1) tl in
+    aux_y 0 pixels;
+    color_array
+
+let display res_x res_y pixels =
+    let open Graphics in
+    open_graph "";
+    set_window_title "Ray-tracer";
+    resize_window res_x res_y;
+    draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 res_y
