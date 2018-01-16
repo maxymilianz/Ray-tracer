@@ -327,4 +327,4 @@ let to_file filename res_x res_y pixels =
                     fprintf stream "%d %d %d\t\t" r g b :: aux_x tl in
             aux_x hd :: aux_y tl in
     aux_y pixels;
-    close_out stream;
+    close_out stream
