@@ -46,8 +46,8 @@ module type VECTOR = sig
     val len : t -> float
     
     val normalize : t -> t
-    val symmetric : t -> t -> t -> t        (* point to reflect -> dir anchorage point -> dir -> reflected point *)
     val opposite : t -> t
+    val symmetric : t -> t -> t -> t        (* point to reflect -> dir anchorage point -> dir -> reflected point *)
 end
 
 module Vector : VECTOR = struct
@@ -76,15 +76,19 @@ module Vector : VECTOR = struct
         V (x, y, z) -> let len = len v in
             V (x /. len, y /. len, z /. len)
 
-    let symmetric p anchor dir = anchor     (* TODO *)
-
     let opposite (V (x, y, z)) = V (-.x, -.y, -.z)
+
+    let symmetric p anchor dir =
+        let norm_dir = normalize dir
+        and op_p = opposite p in
+        add anchor (subtract op_p (mult norm_dir (2. *. dot_prod op_p norm_dir)))
 end
 
 let test_vector_symmetric () =
-    let v = Vector.create 0. 1. 0.
-    and ref = Vector.create (10.) (10.) 0. in
-    Vector.symmetric v ref
+    let p = Vector.create 1. 1. 1.
+    and anchor = Vector.create 0. 0. 0.
+    and dir = Vector.create 1. 1. 0. in
+    Vector.symmetric p anchor dir
 
 module type LIGHT = sig
     type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
