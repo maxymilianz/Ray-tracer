@@ -80,14 +80,14 @@ module Vector : VECTOR = struct
 
     let symmetric p anchor dir =
         let norm_dir = normalize dir
-        and op_p = opposite p in
+        and op_p = subtract anchor p in
         add anchor (subtract op_p (mult norm_dir (2. *. dot_prod op_p norm_dir)))
 end
 
 let test_vector_symmetric () =
-    let p = Vector.create 1. 1. 1.
-    and anchor = Vector.create 0. 0. 0.
-    and dir = Vector.create 1. 1. 0. in
+    let p = Vector.create 0. 1. 0.
+    and anchor = Vector.create 50. 0. 0.
+    and dir = Vector.create 0. 1. 0. in
     Vector.symmetric p anchor dir
 
 module type LIGHT = sig
@@ -262,6 +262,11 @@ let test_pixel_to_vector () = let open Vector in
     and x, y = 161, 415
     and canvas_coords = create 0. 0. 0., create 1000. 0. 0., create 1000. (-1000.) 0., create 0. (-1000.) 0. in
     pixel_to_vector res_x res_y x y canvas_coords
+
+let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
+    let open Hashtbl in
+    let hashtable = create (res_x * res_y) in
+    1
 
 let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =        (* returns list of lists of colors (res_y * res_x) *)
     let rec aux_y y =
