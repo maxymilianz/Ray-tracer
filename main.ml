@@ -17,6 +17,8 @@ module type COLOR = sig
 
     val to_int : t -> (int * int * int)
     val from_int : int -> int -> int -> t
+
+    val max_int : int
 end
 
 module Color : COLOR = struct
@@ -39,6 +41,8 @@ module Color : COLOR = struct
         C (r, g, b) -> int_of_float r, int_of_float g, int_of_float b
 
     let from_int r g b = div (C (float r, float g, float b)) 256.
+
+    let max_int = 255
 end
 
 module type VECTOR = sig
@@ -306,3 +310,21 @@ let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =       
                                 | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl (x + 1) in
                 aux_x hd 0 :: aux_y tl (y + 1) in
     aux_y vectors 0
+
+let to_file filename res_x res_y pixels =
+    let open Printf in
+    let stream = open_out filename in
+    fprintf stream "P3\n";
+    fprintf stream "%d %d\n" res_x res_y;
+    fprintf stream "%d" Color.max_int;
+    let rec aux_y = function
+        [] -> []
+        | hd :: tl ->
+            let rec aux_x = function
+                [] -> [fprintf stream "\n"]
+                | hd :: tl ->
+                    let r, g, b = Color.to_int hd in
+                    fprintf stream "%d %d %d\t\t" r g b :: aux_x tl in
+            aux_x hd :: aux_y tl in
+    aux_y pixels;
+    close_out stream;
