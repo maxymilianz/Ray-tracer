@@ -11,8 +11,12 @@ module type COLOR = sig
 
     val add : t -> t -> t
     val mult : t -> float -> t
+    val div : t -> float -> t
 
     val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple <= 0 *)
+
+    val to_int : t -> (int * int * int)
+    val from_int : int -> int -> int -> t
 end
 
 module Color : COLOR = struct
@@ -26,7 +30,15 @@ module Color : COLOR = struct
 
     let mult (C (r, g, b)) c = C (r*.c, g*.c, b*.c)
 
+    let div (C (r, g, b)) c = C (r/.c, g/.c, b/.c)    
+
     let mix3 color0 color1 color2 (ratio0, ratio1, ratio2) = add (mult color0 ratio0) (add (mult color1 ratio1) (mult color2 ratio2))
+
+    let to_int c =
+        match mult c 256. with
+        C (r, g, b) -> int_of_float r, int_of_float g, int_of_float b
+
+    let from_int r g b = div (C (float r, float g, float b)) 256.
 end
 
 module type VECTOR = sig
