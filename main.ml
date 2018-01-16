@@ -255,7 +255,7 @@ module Obj : OBJ = struct
         aux None infinity objs
 end
 
-let pixel_to_vector res_x res_y x y (ul, ur, lr, ll) =
+(* let pixel_to_vector res_x res_y x y (ul, ur, lr, ll) =
     let horizontal, vertical = Vector.displacement ul ur, Vector.displacement ul ll in
     let ratio_x, ratio_y = float x /. float res_x, float y /. float res_y in
     Vector.(add ul (add (mult horizontal ratio_x) (mult vertical ratio_y)))
@@ -264,7 +264,7 @@ let test_pixel_to_vector () = let open Vector in
     let res_x, res_y = 1000, 1000
     and x, y = 161, 415
     and canvas_coords = create 0. 0. 0., create 1000. 0. 0., create 1000. (-1000.) 0., create 0. (-1000.) 0. in
-    pixel_to_vector res_x res_y x y canvas_coords
+    pixel_to_vector res_x res_y x y canvas_coords *)
 
 let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
     let horizontal, vertical = Vector.(displacement ul ur, displacement ul ll) in
@@ -279,13 +279,18 @@ let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
     aux_y ul 0
 
 let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =        (* returns list of lists of colors (res_y * res_x) *)
-    let rec aux_y y =
+    let vectors = pixels_to_vectors res_x res_y canvas_coords in
+    let rec aux_y vectors y =
         if y = res_y then []
-        else let rec aux_x x =
-            if x = res_x then []
-            else let dir = Vector.displacement pos (pixel_to_vector res_x res_y x y canvas_coords) in
-                (match Obj.closest_intersection pos dir objs with
-                    None -> bg_color
-                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x (x + 1) in
-            aux_x 0 :: aux_y (y + 1) in
-    aux_y 0
+        else match vectors with
+            hd :: tl ->
+                let rec aux_x vectors x =
+                    if x = res_x then []
+                    else match vectors with
+                        hd :: tl ->
+                            let dir = Vector.displacement pos hd in
+                            (match Obj.closest_intersection pos dir objs with
+                                None -> bg_color
+                                | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl (x + 1) in
+                aux_x hd 0 :: aux_y tl (y + 1) in
+    aux_y vectors 0
