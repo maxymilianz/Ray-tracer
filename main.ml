@@ -1,7 +1,11 @@
+let pi = 4.0 *. atan 1.0
+
 let solve_quadratic_equation a b c =        (* ax^2 + bx + c = 0 *)
     let delta = b*.b -. 4.*.a*.c in
     if delta < 0. then None
     else Some ((-.b +. sqrt delta) /. (2.*.a), (-.b -. sqrt delta) /. (2.*.a))
+
+let abs x = if x < 0. then -.x else x
 
 module type COLOR = sig
     type t = C of float * float * float        (* (r, g, b) *)
@@ -80,6 +84,9 @@ module type VECTOR = sig
     val normalize : t -> t
     val opposite : t -> t
     val symmetric : t -> t -> t -> t        (* point to reflect -> dir anchorage point -> dir -> reflected point *)
+
+    val angle : t -> t -> float
+    val abs_angle : t -> t -> float
 end
 
 module Vector : VECTOR = struct
@@ -116,6 +123,10 @@ module Vector : VECTOR = struct
         let norm_dir = normalize dir
         and op_p = subtract anchor p in
         add anchor (subtract op_p (mult norm_dir (2. *. dot_prod op_p norm_dir)))
+
+    let angle v0 v1 = acos (dot_prod v0 v1 /. (len v0 *. len v1))
+
+    let abs_angle v0 v1 = abs (angle v0 v1)
 end
 
 let test_vector_symmetric () =
@@ -123,6 +134,11 @@ let test_vector_symmetric () =
     and anchor = Vector.create 50. 0. 0.
     and dir = Vector.create 0. 1. 0. in
     Vector.symmetric p anchor dir
+
+let test_vector_angle () =
+    let v0 = Vector.create 0. 0. (-1.)
+    and v1 = Vector.create 1. 1. (-1.) in
+    Vector.angle v0 v1
 
 module type LIGHT = sig
     type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
@@ -139,7 +155,7 @@ module Light : LIGHT = struct
 
     let max_intensity = 1.
 
-    let min_intensity = 0.1
+    let min_intensity = 0.4
 
     let intensity pos = function
         Point (pos', intensity) -> min max_intensity (1. /. Vector.dist_sq pos pos')
@@ -206,7 +222,7 @@ module Surface : SURFACE = struct
             if coeff < 0. then None
             else Some Vector.(add pos (mult dir coeff))
     
-    let normal (normal, _, _, _) = normal
+    let normal (normal, _, _, _) = Vector.normalize normal
 end
 
 let test_surface_intersection () =
@@ -255,17 +271,22 @@ module Obj : OBJ = struct
 
     and color_lighted point obj objs lights =
         let intensity light =
+            let normal = normal point obj in
             match light with
             Light.Point (pos, intensity) ->
-                (match closest_intersection point (Vector.displacement point pos) objs with
-                None -> Some (Light.intensity point light)
-                | Some (obj, point') ->
-                    if Vector.(dist point pos > dist point point') then None
-                    else Some (Light.intensity point light))
-            | Light.Sun (dir, intensity) ->
-                (match closest_intersection point (Vector.opposite dir) objs with
-                None -> Some (Light.intensity point light)
-                | _ -> None) in
+                let dir = Vector.displacement point pos in
+                if Vector.abs_angle normal dir > pi /. 2. then None
+                else (match closest_intersection point dir (List.filter (fun x -> x != obj) objs) with
+                    None -> Some (Light.intensity point light)
+                    | Some (obj, point') ->
+                        if Vector.(dist point pos > dist point point') then None
+                        else Some (Light.intensity point light))
+            | Light.Sun (light_dir, intensity) ->
+                let rev_light_dir = Vector.opposite light_dir in
+                if Vector.abs_angle normal rev_light_dir > pi /. 2. then None
+                else (match closest_intersection point rev_light_dir (List.filter (fun x -> x != obj) objs) with
+                    None -> Some (Light.intensity point light)
+                    | _ -> None) in
         let rec aux current_intensity = function
             [] -> current_intensity
             | hd :: tl -> match intensity hd with
@@ -381,9 +402,10 @@ let display res_x res_y pixels =
     draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 0
 
 let objs_for_test () =
-    let sph = Sphere.create (Vector.create 100. 100. 400.) 50. Color.blue (0., 0., 1.)
-    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 400.) Color.red (0., 0., 1.) in
-    [Obj.Sph sph; Obj.Surf surf]
+    let sph = Sphere.create (Vector.create 100. 100. 400.) 50. Color.red (0., 0., 1.)
+    and sph1 = Sphere.create (Vector.create 500. 500. 400.) 100. Color.green (0., 0., 1.)
+    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 400.) Color.blue (0., 0., 1.) in
+    [Obj.Sph sph; Obj.Sph sph1; Obj.Surf surf]
 
 let lights_for_test () =
     let sun = Light.Sun (Vector.create (-1.) (-1.) 1., 1.) in
