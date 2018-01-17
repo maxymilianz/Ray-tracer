@@ -9,3 +9,5 @@
 			2. find closest collision point p of v and objects
 			3. compute color c at p
 			4. image[y][x] = c
+			
+x grows to right, y - down, z - further from camera

@@ -15,6 +15,7 @@ module type COLOR = sig
     val red : t
     val green : t
     val blue : t
+    val grey : t
 
     val create : float -> float -> float -> t
 
@@ -40,6 +41,7 @@ module Color : COLOR = struct
     let red = C (1., 0., 0.)
     let green = C (0., 1., 0.)
     let blue = C (0., 0., 1.)
+    let grey = C (0.5, 0.5, 0.5)
 
     let create r g b = C (r, g, b)
 
@@ -119,10 +121,10 @@ module Vector : VECTOR = struct
 
     let opposite (V (x, y, z)) = V (-.x, -.y, -.z)
 
-    let symmetric p anchor dir =
-        let norm_dir = normalize dir
+    let symmetric p anchor normal =
+        let normal = normalize normal
         and op_p = subtract anchor p in
-        add anchor (subtract op_p (mult norm_dir (2. *. dot_prod op_p norm_dir)))
+        add anchor (subtract op_p (mult normal (2. *. dot_prod op_p normal)))
 
     let angle v0 v1 = acos (dot_prod v0 v1 /. (len v0 *. len v1))
 
@@ -265,7 +267,7 @@ module Obj : OBJ = struct
     
     let rec color_reflected pos point obj objs lights bg_color rec_depth =
         let dir = Vector.(displacement point (symmetric pos point (normal point obj))) in
-        match closest_intersection point dir objs with
+        match closest_intersection point dir (List.filter (fun x -> x != obj) objs) with
         None -> bg_color
         | Some (obj, point') -> resultant_color point point' obj objs lights bg_color rec_depth
 
@@ -300,7 +302,12 @@ module Obj : OBJ = struct
         let glowed = if glow = 0. then Color.black else color obj
         and reflected = if refl = 0. || rec_depth = 0 then Color.black else color_reflected pos point obj objs lights bg_color (rec_depth - 1)
         and scattered = if scat = 0. then Color.black else color_lighted point obj objs lights in
-        Color.mix3 glowed reflected scattered (glow, refl, scat)
+        if rec_depth = 0 then
+            let change_ratio = (glow+.refl+.scat) /. (glow+.scat) in
+            let glow, refl, scat = glow*.change_ratio, 0., scat*.change_ratio in
+            Color.mix3 glowed reflected scattered (glow, refl, scat)
+        else
+            Color.mix3 glowed reflected scattered (glow, refl, scat)
 
     and closest_intersection pos dir objs =       (* camera pos -> camera dir -> objs -> optional object and point of intersection *)
         let rec aux closest dist = function     (* optional current closest object and point -> dist (not optional; None => infinity) -> same return type as above *)
@@ -402,13 +409,18 @@ let display res_x res_y pixels =
     draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 0
 
 let objs_for_test () =
-    let sph = Sphere.create (Vector.create 100. 100. 400.) 50. Color.red (0., 0., 1.)
-    and sph1 = Sphere.create (Vector.create 500. 500. 400.) 100. Color.green (0., 0., 1.)
-    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 400.) Color.blue (0., 0., 1.) in
-    [Obj.Sph sph; Obj.Sph sph1; Obj.Surf surf]
+    let sph = Sphere.create (Vector.create (-50.) (-50.) 0.) 50. Color.white (1., 0., 0.)
+    and sph1 = Sphere.create (Vector.create 0. 620. 200.) 100. Color.red (0., 0.6, 0.4)
+    and sph2 = Sphere.create (Vector.create 400. 520. 400.) 200. Color.green (0., 0.6, 0.4)
+    and sph3 = Sphere.create (Vector.create 700. 420. 200.) 300. Color.blue (0., 0.6, 0.4)
+    and sph4 = Sphere.create (Vector.create 900. 320. 700.) 400. Color.green (0., 0.6, 0.4)
+    (* and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 800.) Color.blue (0., 0., 1.) in *)
+    and surf = Surface.create (Vector.create 0. (-1.) 0.) (Vector.create 0. 720. 0.) Color.grey (0., 0.6, 0.4) in
+    [Obj.Sph sph; Obj.Sph sph1; Obj.Sph sph2; Obj.Sph sph3; Obj.Sph sph4; Obj.Surf surf]
 
 let lights_for_test () =
-    let sun = Light.Sun (Vector.create (-1.) (-1.) 1., 1.) in
+    let sun = Light.Sun (Vector.create (1.) (1.) 1., 1.) in
+    (* let point = Light.Point (Vector.create 1280. 0. 0., 1.) in *)
     [sun]
 
 let test filename =
@@ -418,7 +430,7 @@ let test filename =
     and objs = objs_for_test ()
     and lights = lights_for_test ()
     and bg_color = Color.black
-    and rec_depth = 5 in
+    and rec_depth = 4 in
     let pixels = render res_x res_y canvas_coords pos objs lights bg_color rec_depth in
     if filename = "" then display res_x res_y pixels
     else to_file filename res_x res_y pixels
