@@ -20,10 +20,10 @@ module type COLOR = sig
 
     val mix3 : t -> t -> t -> (float * float * float) -> t      (* floats triple <= 0 *)
 
+    val max_int : int
+
     val to_int : t -> (int * int * int)
     val from_int : int -> int -> int -> t
-
-    val max_int : int
 
     val to_graphics_color : t -> int
 end
@@ -47,13 +47,13 @@ module Color : COLOR = struct
 
     let mix3 color0 color1 color2 (ratio0, ratio1, ratio2) = add (mult color0 ratio0) (add (mult color1 ratio1) (mult color2 ratio2))
 
+    let max_int = 255
+
     let to_int c =
-        match mult c 256. with
+        match mult c (float max_int) with
         C (r, g, b) -> int_of_float r, int_of_float g, int_of_float b
 
-    let from_int r g b = div (C (float r, float g, float b)) 256.
-
-    let max_int = 255
+    let from_int r g b = div (C (float r, float g, float b)) (float max_int)
 
     let to_graphics_color c =
         let r, g, b = to_int c in
@@ -332,22 +332,32 @@ let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =       
                 aux_x hd 0 :: aux_y tl (y + 1) in
     aux_y vectors 0
 
+let pixels_to_array res_x res_y pixels =
+    let array = Array.init res_y (fun i -> Array.make res_x (0, 0, 0)) in
+    let rec aux_y y = function
+        [] -> []
+        | hd :: tl ->
+            let rec aux_x x = function
+                [] -> []
+                | hd :: tl -> (array.(y).(x) <- Color.to_int hd) :: aux_x (x + 1) tl in
+            aux_x 0 hd :: aux_y (y + 1) tl in
+    aux_y 0 (List.rev pixels);
+    array
+
 let to_file filename res_x res_y pixels =
     let open Printf in
     let stream = open_out filename in
     fprintf stream "P3\n";
     fprintf stream "%d %d\n" res_x res_y;
-    fprintf stream "%d" Color.max_int;
-    let rec aux_y = function
-        [] -> []
-        | hd :: tl ->
-            let rec aux_x = function
-                [] -> [fprintf stream "\n"]
-                | hd :: tl ->
-                    let r, g, b = Color.to_int hd in
-                    fprintf stream "%d %d %d\t\t" r g b :: aux_x tl in
-            aux_x hd :: aux_y tl in
-    aux_y pixels;
+    fprintf stream "%d\n" Color.max_int;
+    let array = pixels_to_array res_x res_y pixels in
+    for y = 0 to res_y - 1 do
+        for x = 0 to res_x - 1 do
+            let r, g, b = array.(y).(x) in
+            fprintf stream "%d %d %d\t\t" r g b
+        done;
+        fprintf stream "\n"
+    done;
     close_out stream
 
 let pixels_to_image res_x res_y pixels =
@@ -360,26 +370,26 @@ let pixels_to_image res_x res_y pixels =
                 [] -> []
                 | hd :: tl -> (color_array.(y).(x) <- Color.to_graphics_color hd) :: aux_x (x + 1) tl in
             aux_x 0 hd :: aux_y (y + 1) tl in
-    aux_y 0 pixels;
+    aux_y 0 (List.rev pixels);
     color_array
 
 let display res_x res_y pixels =
     let open Graphics in
-    open_graph "";
-    resize_window res_x res_y;
+    open_graph (string_of_int res_x ^ "x" ^ string_of_int res_y);
+    (* resize_window res_x res_y; *)
     set_window_title "Ray-tracer";
     draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 0
 
 let objs_for_test () =
     let sph = Sphere.create (Vector.create 100. 100. 400.) 50. Color.red (0., 0., 1.)
-    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 1000.) Color.green (0., 0., 1.) in
+    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 400.) Color.blue (0., 0., 1.) in
     [Obj.Sph sph; Obj.Surf surf]
 
 let lights_for_test () =
     let sun = Light.Sun (Vector.create (-1.) (-1.) 1., 1.) in
     [sun]
 
-let test () =
+let test filename =
     let res_x, res_y = 1280, 720
     and canvas_coords = (Vector.create 0. 720. 0., Vector.create 1280. 720. 0., Vector.create 1280. 0. 0., Vector.create 0. 0. 0.)
     and pos = Vector.create 640. 360. (-500.)
@@ -388,4 +398,5 @@ let test () =
     and bg_color = Color.black
     and rec_depth = 5 in
     let pixels = render res_x res_y canvas_coords pos objs lights bg_color rec_depth in
-    display res_x res_y pixels
+    if filename = "" then display res_x res_y pixels
+    else to_file filename res_x res_y pixels
