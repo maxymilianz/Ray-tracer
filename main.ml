@@ -7,6 +7,11 @@ module type COLOR = sig
     type t = C of float * float * float        (* (r, g, b) *)
 
     val black : t
+    val white : t
+    val red : t
+    val green : t
+    val blue : t
+
     val create : float -> float -> float -> t
 
     val add : t -> t -> t
@@ -27,6 +32,10 @@ module Color : COLOR = struct
     type t = C of float * float * float
 
     let black = C (0., 0., 0.)
+    let white = C (1., 1., 1.)
+    let red = C (1., 0., 0.)
+    let green = C (0., 1., 0.)
+    let blue = C (0., 0., 1.)
 
     let create r g b = C (r, g, b)
 
@@ -145,12 +154,15 @@ end
 module type SPHERE = sig
     type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) ratio <= 1 *)
 
+    val create : Vector.t -> float -> Color.t -> (float * float * float) -> t
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> sphere -> optional intersection point *)
     val normal : Vector.t -> t -> Vector.t
 end
 
 module Sphere : SPHERE = struct
     type t = Vector.t * float * Color.t * (float * float * float)
+
+    let create pos radius color ratio = pos, radius, color, ratio
 
     let intersection pos dir (center, r, _, _) =
         let l = Vector.displacement center pos in
@@ -176,12 +188,15 @@ let test_sphere_intersection () =
 module type SURFACE = sig
     type t = Vector.t * Vector.t * Color.t * (float * float * float)      (* normal, point on surface, color and (glowing, reflecting, scattering) ratio <= 1 *)
 
+    val create : Vector.t -> Vector.t -> Color.t -> (float * float * float) -> t
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> surface -> optional intersection point *)
     val normal : t -> Vector.t    
 end
 
 module Surface : SURFACE = struct
     type t = Vector.t * Vector.t * Color.t * (float * float * float)
+
+    let create normal point color ratio = normal, point, color, ratio
 
     let intersection pos dir (normal, point, _, _) =
         let denominator = Vector.dot_prod dir normal in
@@ -351,6 +366,26 @@ let pixels_to_image res_x res_y pixels =
 let display res_x res_y pixels =
     let open Graphics in
     open_graph "";
-    set_window_title "Ray-tracer";
     resize_window res_x res_y;
-    draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 res_y
+    set_window_title "Ray-tracer";
+    draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 0
+
+let objs_for_test () =
+    let sph = Sphere.create (Vector.create 100. 100. 400.) 50. Color.red (0., 0., 1.)
+    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 1000.) Color.green (0., 0., 1.) in
+    [Obj.Sph sph; Obj.Surf surf]
+
+let lights_for_test () =
+    let sun = Light.Sun (Vector.create (-1.) (-1.) 1., 1.) in
+    [sun]
+
+let test () =
+    let res_x, res_y = 1280, 720
+    and canvas_coords = (Vector.create 0. 720. 0., Vector.create 1280. 720. 0., Vector.create 1280. 0. 0., Vector.create 0. 0. 0.)
+    and pos = Vector.create 640. 360. (-500.)
+    and objs = objs_for_test ()
+    and lights = lights_for_test ()
+    and bg_color = Color.black
+    and rec_depth = 5 in
+    let pixels = render res_x res_y canvas_coords pos objs lights bg_color rec_depth in
+    display res_x res_y pixels
