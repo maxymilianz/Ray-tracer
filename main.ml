@@ -85,7 +85,7 @@ module type VECTOR = sig
     
     val normalize : t -> t
     val opposite : t -> t
-    val symmetric : t -> t -> t -> t        (* point to reflect -> dir anchorage point -> dir -> reflected point *)
+    val symmetric : t -> t -> t        (* point to reflect -> normal -> reflected point *)
 
     val angle : t -> t -> float
     val abs_angle : t -> t -> float
@@ -121,10 +121,9 @@ module Vector : VECTOR = struct
 
     let opposite (V (x, y, z)) = V (-.x, -.y, -.z)
 
-    let symmetric p anchor normal =
-        let normal = normalize normal
-        and op_p = subtract anchor p in
-        add anchor (subtract op_p (mult normal (2. *. dot_prod op_p normal)))
+    let symmetric p normal =
+        let normal = normalize normal in
+        subtract p (mult normal (2. *. dot_prod p normal))
 
     let angle v0 v1 = acos (dot_prod v0 v1 /. (len v0 *. len v1))
 
@@ -133,9 +132,8 @@ end
 
 let test_vector_symmetric () =
     let p = Vector.create 0. 1. 0.
-    and anchor = Vector.create 50. 0. 0.
     and dir = Vector.create 0. 1. 0. in
-    Vector.symmetric p anchor dir
+    Vector.symmetric p dir
 
 let test_vector_angle () =
     let v0 = Vector.create 0. 0. (-1.)
@@ -266,7 +264,7 @@ module Obj : OBJ = struct
         | Surf (_, _, _, color_ratio) -> color_ratio
     
     let rec color_reflected pos point obj objs lights bg_color rec_depth =
-        let dir = Vector.(displacement point (symmetric pos point (normal point obj))) in
+        let dir = Vector.(symmetric (displacement pos point) (normal point obj)) in
         match closest_intersection point dir (List.filter (fun x -> x != obj) objs) with
         None -> bg_color
         | Some (obj, point') -> resultant_color point point' obj objs lights bg_color rec_depth
