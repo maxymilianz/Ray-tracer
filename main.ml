@@ -254,7 +254,7 @@ module Obj : OBJ = struct
         | Some (obj, point') -> resultant_color point point' obj objs lights bg_color rec_depth
 
     and color_lighted point obj objs lights =
-        let rec intensity light =
+        let intensity light =
             match light with
             Light.Point (pos, intensity) ->
                 (match closest_intersection point (Vector.displacement point pos) objs with
@@ -381,8 +381,8 @@ let display res_x res_y pixels =
     draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 0
 
 let objs_for_test () =
-    let sph = Sphere.create (Vector.create 100. 100. 400.) 50. Color.red (0., 0., 1.)
-    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 400.) Color.blue (0., 0., 1.) in
+    let sph = Sphere.create (Vector.create 100. 100. 400.) 50. Color.blue (0., 0., 1.)
+    and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 400.) Color.red (0., 0., 1.) in
     [Obj.Sph sph; Obj.Surf surf]
 
 let lights_for_test () =
