@@ -7,3 +7,4 @@ ocaml graphics.cma.txt
 ocamlopt -o main graphics.cmxa main.ml.txt
 *.cmi
 *.cmx
+compiling.txt

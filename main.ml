@@ -434,3 +434,5 @@ let test filename =
     let pixels = render res_x res_y canvas_coords pos objs lights bg_color rec_depth in
     if filename = "" then display res_x res_y pixels
     else to_file filename res_x res_y pixels
+
+let () = test "test.ppm"
