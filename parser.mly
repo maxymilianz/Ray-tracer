@@ -34,7 +34,7 @@ let default_scene = 1
 %token POINT
 %token SUN
 %token LEFT_BRACE
-%token RIGTH_BRACE
+%token RIGHT_BRACE
 %token EOF
 %start file
 
@@ -77,12 +77,12 @@ lights:
     | l = light; ls = lights { l :: ls }
 
 obj:
-    | SPH; LEFT_BRACE; p = vector; r = FLOAT; c = color; cr = color_ratio; RIGTH_BRACE { Obj.create_sph p r c cr }
-    | SURF; LEFT_BRACE; n = vector; p = vector; c = color; cr = color_ratio; RIGTH_BRACE { Obj.create_surf n p c cr }
+    | SPH; LEFT_BRACE; p = vector; r = FLOAT; c = color; cr = color_ratio; RIGHT_BRACE { Obj.create_sph p r c cr }
+    | SURF; LEFT_BRACE; n = vector; p = vector; c = color; cr = color_ratio; RIGHT_BRACE { Obj.create_surf n p c cr }
 
 light:
-    | POINT; LEFT_BRACE; p = vector; i = FLOAT; RIGTH_BRACE { Light.create_point p i }
-    | SUN; LEFT_BRACE; d = vector; i = FLOAT; RIGTH_BRACE { Light.create_sun d i }
+    | POINT; LEFT_BRACE; p = vector; i = FLOAT; RIGHT_BRACE { Light.create_point p i }
+    | SUN; LEFT_BRACE; d = vector; i = FLOAT; RIGHT_BRACE { Light.create_sun d i }
 
 vector:
     | x = FLOAT; y = FLOAT; z = FLOAT { Vector.create x y z }
