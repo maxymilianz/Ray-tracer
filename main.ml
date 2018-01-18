@@ -407,14 +407,16 @@ let display res_x res_y pixels =
     draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 0
 
 let objs_for_test () =
-    let sph = Sphere.create (Vector.create (-50.) (-50.) 0.) 50. Color.white (1., 0., 0.)
+    let sph = Sphere.create (Vector.create (-50.) (-50.) (-50.)) 70. Color.white (1., 0., 0.)
     and sph1 = Sphere.create (Vector.create 0. 620. 200.) 100. Color.red (0., 0.6, 0.4)
-    and sph2 = Sphere.create (Vector.create 400. 520. 400.) 200. Color.green (0., 0.6, 0.4)
-    and sph3 = Sphere.create (Vector.create 700. 420. 200.) 300. Color.blue (0., 0.6, 0.4)
-    and sph4 = Sphere.create (Vector.create 900. 320. 700.) 400. Color.green (0., 0.6, 0.4)
+    and sph2 = Sphere.create (Vector.create 400. 520. 200.) 200. Color.green (0., 0.6, 0.4)
+    and sph3 = Sphere.create (Vector.create 600. 420. 800.) 300. Color.blue (0., 0.6, 0.4)
+    and sph4 = Sphere.create (Vector.create 1200. 320. 500.) 400. Color.green (0., 0.6, 0.4)
+    and sph5 = Sphere.create (Vector.create (-50.) 420. 500.) 300. Color.blue (0., 0.6, 0.4)
+    and sph6 = Sphere.create (Vector.create 800. 570. 100.) 150. Color.red (0., 0.6, 0.4)
     (* and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 800.) Color.blue (0., 0., 1.) in *)
     and surf = Surface.create (Vector.create 0. (-1.) 0.) (Vector.create 0. 720. 0.) Color.grey (0., 0.6, 0.4) in
-    [Obj.Sph sph; Obj.Sph sph1; Obj.Sph sph2; Obj.Sph sph3; Obj.Sph sph4; Obj.Surf surf]
+    [Obj.Sph sph; Obj.Sph sph1; Obj.Sph sph2; Obj.Sph sph3; Obj.Sph sph4; Obj.Sph sph5; Obj.Sph sph6; Obj.Surf surf]
 
 let lights_for_test () =
     let sun = Light.Sun (Vector.create (1.) (1.) 1., 1.) in
