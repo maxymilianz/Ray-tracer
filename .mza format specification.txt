@@ -13,30 +13,26 @@ r g b		# 0 <= ints < 256, bg color
 
 rec_depth		# int, max # of times a ray may be reflected
 
-OBJS
-	Sph
-		x y z		# floats, center pos
-		radius		# float
-		r g b		# ints
-		glow refl scat		# floats that sum up to <= 1
-	end
+Sph {
+	x y z		# floats, center pos
+	radius		# float
+	r g b		# ints
+	glow refl scat		# floats that sum up to <= 1
+}
 
-	Surf
-		n_x n_y n_z		# floats, normal vector
-		p_x p_y p_z		# floats, point of surface
-		r g b		# ints
-		glow refl scat		# floats that sum up to <= 1
-	end
-END
+Surf {
+	n_x n_y n_z		# floats, normal vector
+	p_x p_y p_z		# floats, point of surface
+	r g b		# ints
+	glow refl scat		# floats that sum up to <= 1
+}
 
-LIGHTS
-	Point
-		x y z		# floats, pos
-		intensity		# float
-	end
+Point {
+	x y z		# floats, pos
+	intensity		# float
+}
 
-	Sun
-		x y z		# floats, dir
-		intensity		# float
-	end
-END
+Sun {
+	x y z		# floats, dir
+	intensity		# float
+}

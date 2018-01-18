@@ -143,6 +143,9 @@ let test_vector_angle () =
 module type LIGHT = sig
     type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
 
+    val create_point : Vector.t -> float -> t
+    val create_sun : Vector.t -> float -> t
+
     val max_intensity : float
     val min_intensity : float
    
@@ -152,6 +155,10 @@ end
 
 module Light : LIGHT = struct
     type t = Point of Vector.t * float | Sun of Vector.t * float
+
+    let create_point pos intensity = Point (pos, intensity)
+
+    let create_sun dir intensity = Sun (dir, intensity)
 
     let max_intensity = 1.
 
@@ -234,6 +241,9 @@ let test_surface_intersection () =
 module type OBJ = sig
     type t = Sph of Sphere.t | Surf of Surface.t
 
+    val create_sph : Vector.t -> float -> Color.t -> (float * float * float) -> t
+    val create_surf : Vector.t -> Vector.t -> Color.t -> (float * float * float) -> t
+
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
     val normal : Vector.t -> t -> Vector.t
     
@@ -246,6 +256,10 @@ end
 
 module Obj : OBJ = struct
     type t = Sph of Sphere.t | Surf of Surface.t
+
+    let create_sph pos radius color ratio = Sph (pos, radius, color, ratio)
+
+    let create_surf normal point color ratio = Surf (normal, point, color, ratio)
     
     let intersection pos dir = function
         Sph sph -> Sphere.intersection pos dir sph
@@ -316,6 +330,18 @@ module Obj : OBJ = struct
                     if new_dist < dist then aux (Some (hd, point)) new_dist tl
                     else aux closest dist tl in
         aux None infinity objs
+end
+
+module type SCENE = sig
+    type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Obj.t list) * (Light.t list)
+
+    val create : (int * int) -> (Vector.t * Vector.t * Vector.t * Vector.t) -> Vector.t -> Color.t -> int -> (Obj.t list) -> (Light.t list) -> t
+end
+
+module Scene : SCENE = struct
+    type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Obj.t list) * (Light.t list)
+
+    let create res canvas_coords camera_pos bg_color rec_depth objs lights = res, canvas_coords, camera_pos, bg_color, rec_depth, objs, lights
 end
 
 (* let pixel_to_vector res_x res_y x y (ul, ur, lr, ll) =
@@ -425,7 +451,7 @@ let lights_for_test () =
 
 let test filename =
     let res_x, res_y = 1280, 720
-    and canvas_coords = (Vector.create 0. 720. 0., Vector.create 1280. 720. 0., Vector.create 1280. 0. 0., Vector.create 0. 0. 0.)
+    and canvas_coords = Vector.create 0. 720. 0., Vector.create 1280. 720. 0., Vector.create 1280. 0. 0., Vector.create 0. 0. 0.
     and pos = Vector.create 640. 360. (-500.)
     and objs = objs_for_test ()
     and lights = lights_for_test ()
