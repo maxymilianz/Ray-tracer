@@ -29,7 +29,6 @@ let default_scene = 1
 
 %token <int> INT
 %token <float> FLOAT
-%token <string> STRING
 %token SPH
 %token SURF
 %token POINT

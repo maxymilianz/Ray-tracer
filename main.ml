@@ -369,30 +369,28 @@ let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
 
 let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =        (* returns list of lists of colors (res_y * res_x) *)
     let vectors = pixels_to_vectors res_x res_y canvas_coords in
-    let rec aux_y vectors y =
-        if y = res_y then []
-        else match vectors with
-            hd :: tl ->
-                let rec aux_x vectors x =
-                    if x = res_x then []
-                    else match vectors with
-                        hd :: tl ->
-                            let dir = Vector.displacement pos hd in
-                            (match Obj.closest_intersection pos dir objs with
-                                None -> bg_color
-                                | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl (x + 1) in
-                aux_x hd 0 :: aux_y tl (y + 1) in
-    aux_y vectors 0
+    let rec aux_y = function
+        [] -> []
+        | hd :: tl ->
+            let rec aux_x = function
+                [] -> []
+                | hd :: tl ->
+                    let dir = Vector.displacement pos hd in
+                    (match Obj.closest_intersection pos dir objs with
+                    None -> bg_color
+                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl in
+            aux_x hd :: aux_y tl in
+    aux_y vectors
 
 let pixels_to_array res_x res_y pixels =
     let array = Array.init res_y (fun i -> Array.make res_x (0, 0, 0)) in
     let rec aux_y y = function
-        [] -> []
+        [] -> ()
         | hd :: tl ->
             let rec aux_x x = function
-                [] -> []
-                | hd :: tl -> (array.(y).(x) <- Color.to_int hd) :: aux_x (x + 1) tl in
-            aux_x 0 hd :: aux_y (y + 1) tl in
+                [] -> ()
+                | hd :: tl -> (array.(y).(x) <- Color.to_int hd); aux_x (x + 1) tl in
+            aux_x 0 hd; aux_y (y + 1) tl in
     aux_y 0 (List.rev pixels);
     array
 
@@ -416,12 +414,12 @@ let pixels_to_image res_x res_y pixels =
     let open Graphics in
     let color_array = Array.init res_y (fun i -> Array.make res_x 0) in
     let rec aux_y y = function
-        [] -> []
+        [] -> ()
         | hd :: tl ->
             let rec aux_x x = function
-                [] -> []
-                | hd :: tl -> (color_array.(y).(x) <- Color.to_graphics_color hd) :: aux_x (x + 1) tl in
-            aux_x 0 hd :: aux_y (y + 1) tl in
+                [] -> ()
+                | hd :: tl -> (color_array.(y).(x) <- Color.to_graphics_color hd); aux_x (x + 1) tl in
+            aux_x 0 hd; aux_y (y + 1) tl in
     aux_y 0 (List.rev pixels);
     color_array
 
