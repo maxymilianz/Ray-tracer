@@ -2,3 +2,8 @@
 zadanie.txt
 ocaml graphics.cma.txt
 *.ppm
+*.exe
+*.o
+ocamlopt -o main graphics.cmxa main.ml.txt
+*.cmi
+*.cmx
