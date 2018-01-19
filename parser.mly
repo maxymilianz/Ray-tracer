@@ -41,8 +41,8 @@ let default_scene = 1
 %%
 
 file:
-    | EOF { default_scene }
-    | c = contents { c }
+    | EOF { Some default_scene }
+    | c = contents { Some c }
     ;
 
 contents:
