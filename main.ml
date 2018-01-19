@@ -8,7 +8,7 @@ let solve_quadratic_equation a b c =        (* ax^2 + bx + c = 0 *)
 let abs x = if x < 0. then -.x else x
 
 module type COLOR = sig
-    type t = C of float * float * float        (* (r, g, b) *)
+    type t
 
     val black : t
     val white : t
@@ -19,7 +19,6 @@ module type COLOR = sig
 
     val create : float -> float -> float -> t
 
-    val add : t -> t -> t
     val mult : t -> float -> t
     val div : t -> float -> t
 
@@ -34,7 +33,7 @@ module type COLOR = sig
 end
 
 module Color : COLOR = struct
-    type t = C of float * float * float
+    type t = C of float * float * float        (* (r, g, b) *)
 
     let black = C (0., 0., 0.)
     let white = C (1., 1., 1.)
@@ -67,7 +66,7 @@ module Color : COLOR = struct
 end
 
 module type VECTOR = sig
-    type t = V of float * float * float
+    type t
 
     val create : float -> float -> float -> t
 
@@ -141,7 +140,7 @@ let test_vector_angle () =
     Vector.angle v0 v1
 
 module type LIGHT = sig
-    type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
+    type t = Point of Vector.t * float | Sun of Vector.t * float
 
     val create_point : Vector.t -> float -> t
     val create_sun : Vector.t -> float -> t
@@ -154,7 +153,7 @@ module type LIGHT = sig
 end
 
 module Light : LIGHT = struct
-    type t = Point of Vector.t * float | Sun of Vector.t * float
+    type t = Point of Vector.t * float | Sun of Vector.t * float        (* Vector.t in Point is position, in Sun - direction and float is intensity *)
 
     let create_point pos intensity = Point (pos, intensity)
 
@@ -175,15 +174,17 @@ module Light : LIGHT = struct
 end
 
 module type SPHERE = sig
-    type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) ratio <= 1 *)
+    type t
 
     val create : Vector.t -> float -> Color.t -> (float * float * float) -> t
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> sphere -> optional intersection point *)
     val normal : Vector.t -> t -> Vector.t
+    val color : t -> Color.t
+    val color_ratio : t -> (float * float * float)
 end
 
 module Sphere : SPHERE = struct
-    type t = Vector.t * float * Color.t * (float * float * float)
+    type t = Vector.t * float * Color.t * (float * float * float)       (* center position, radius, color and (glowing, reflecting, scattering) ratio <= 1 *)
 
     let create pos radius color ratio = pos, radius, color, ratio
 
@@ -200,24 +201,30 @@ module Sphere : SPHERE = struct
                 Some Vector.(add pos (mult dir closer))
 
     let normal p (center, _, _, _) = Vector.(normalize (displacement center p))
+
+    let color (_, _, color, _) = color
+
+    let color_ratio (_, _, _, color_ratio) = color_ratio
 end
 
 let test_sphere_intersection () =
     let open Vector in
     let pos, dir = create 0. 0. 0., create 50. 50. 50.
-    and sph : Sphere.t = create 10. 10. 10., 10., Color.black, (1., 2., 3.) in
+    and sph = Sphere.create (create 10. 10. 10.) 10. Color.black (1., 2., 3.) in
     Sphere.intersection pos dir sph
 
 module type SURFACE = sig
-    type t = Vector.t * Vector.t * Color.t * (float * float * float)      (* normal, point on surface, color and (glowing, reflecting, scattering) ratio <= 1 *)
+    type t
 
     val create : Vector.t -> Vector.t -> Color.t -> (float * float * float) -> t
     val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> surface -> optional intersection point *)
-    val normal : t -> Vector.t    
+    val normal : t -> Vector.t
+    val color : t -> Color.t
+    val color_ratio : t -> (float * float * float)
 end
 
 module Surface : SURFACE = struct
-    type t = Vector.t * Vector.t * Color.t * (float * float * float)
+    type t = Vector.t * Vector.t * Color.t * (float * float * float)      (* normal, point on surface, color and (glowing, reflecting, scattering) ratio <= 1 *)
 
     let create normal point color ratio = normal, point, color, ratio
 
@@ -230,23 +237,24 @@ module Surface : SURFACE = struct
             else Some Vector.(add pos (mult dir coeff))
     
     let normal (normal, _, _, _) = Vector.normalize normal
+
+    let color (_, _, color, _) = color
+
+    let color_ratio (_, _, _, color_ratio) = color_ratio
 end
 
 let test_surface_intersection () =
     let open Vector in
     let pos, dir = create 0. 1. 0., create 2. (-1.) 0.
-    and surf : Surface.t = create 0. 1. 0., create 0. 0. 0., Color.black, (1., 1., 1.) in
+    and surf = Surface.create (create 0. 1. 0.) (create 0. 0. 0.) Color.black (1., 1., 1.) in
     Surface.intersection pos dir surf
 
 module type OBJ = sig
     type t = Sph of Sphere.t | Surf of Surface.t
 
-    val create_sph : Vector.t -> float -> Color.t -> (float * float * float) -> t
-    val create_surf : Vector.t -> Vector.t -> Color.t -> (float * float * float) -> t
+    val create_sph : Sphere.t -> t
+    val create_surf : Surface.t -> t
 
-    val intersection : Vector.t -> Vector.t -> t -> Vector.t option     (* camera pos -> camera dir -> obj -> optional point of intersection *)
-    val normal : Vector.t -> t -> Vector.t
-    
     (* camera pos -> intersection point -> obj -> objs -> lights -> bg color -> remaining recursion depth -> color *)
     val resultant_color : Vector.t -> Vector.t -> t -> t list -> Light.t list -> Color.t -> int -> Color.t
     
@@ -257,9 +265,9 @@ end
 module Obj : OBJ = struct
     type t = Sph of Sphere.t | Surf of Surface.t
 
-    let create_sph pos radius color ratio = Sph (pos, radius, color, ratio)
+    let create_sph sph = Sph sph
 
-    let create_surf normal point color ratio = Surf (normal, point, color, ratio)
+    let create_surf surf = Surf surf
     
     let intersection pos dir = function
         Sph sph -> Sphere.intersection pos dir sph
@@ -270,12 +278,12 @@ module Obj : OBJ = struct
         | Surf surf -> Surface.normal surf
 
     let color = function
-        Sph (_, _, color, _) -> color
-        | Surf (_, _, color, _) -> color
+        Sph sph -> Sphere.color sph
+        | Surf surf -> Surface.color surf
 
     let color_ratio = function
-        Sph (_, _, _, color_ratio) -> color_ratio
-        | Surf (_, _, _, color_ratio) -> color_ratio
+        Sph sph -> Sphere.color_ratio sph
+        | Surf surf -> Surface.color_ratio surf
     
     let rec color_reflected pos point obj objs lights bg_color rec_depth =
         let dir = Vector.(symmetric (displacement pos point) (normal point obj)) in
@@ -459,4 +467,30 @@ let test filename =
     if filename = "" then display res_x res_y pixels
     else to_file filename res_x res_y pixels
 
-let () = test "test.ppm"
+module type PARSER = sig
+    type t
+
+    val read_file : string -> Scene.t       (* filename -> scene read from file *)
+end
+
+module Parser : PARSER = struct
+    type t = Token_Int of int | Token_Float of float | Token_Vector of Vector.t | Token_Color of Color.t | Token_Sph of Sphere.t | Token_Surf of Surface.t
+        | Token_Obj of Obj.t | Token_Light of Light.t
+
+    let read_file filename =
+        let stream = open_in filename in
+        try
+            let line = input_line stream in
+            Printf.printf "%s\n" line;
+            let line = input_line stream in
+            Printf.printf "%s\n" line;
+            let line = input_line stream in
+            Printf.printf "%s\n" line;
+            let line = input_line stream in
+            Printf.printf "%s\n" line;
+            flush stdout;
+            close_in stream
+        with e ->
+            close_in_noerr stream;
+            raise e
+end
