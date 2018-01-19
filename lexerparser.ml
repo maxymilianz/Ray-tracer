@@ -1,6 +1,11 @@
+open Main
 open Core.Std
 open Lexer
 open Lexing
+
+type parser_token = [
+    `Scene
+]
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
