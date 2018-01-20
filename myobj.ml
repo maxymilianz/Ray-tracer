@@ -4,10 +4,12 @@ let create_sph sph = Sph sph
 
 let create_surf surf = Surf surf
 
+(* camera pos -> camera dir -> t -> optional point of intersection *)
 let intersection pos dir = function
     Sph sph -> Sphere.intersection pos dir sph
     | Surf surf -> Surface.intersection pos dir surf
 
+(* normal to the object at given point *)
 let normal p = function
     Sph sph -> Sphere.normal p sph
     | Surf surf -> Surface.normal surf
@@ -16,6 +18,7 @@ let color = function
     Sph sph -> Sphere.color sph
     | Surf surf -> Surface.color surf
 
+(* glow, refl, scat *)
 let color_ratio = function
     Sph sph -> Sphere.color_ratio sph
     | Surf surf -> Surface.color_ratio surf
