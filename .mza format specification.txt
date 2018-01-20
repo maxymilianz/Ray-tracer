@@ -1,8 +1,8 @@
-.mza format specification ('#' indicates a comment to the end of line):
+.mza format specification ('#' indicates a comment to the end of line ONLY IN THIS FILE):
 
 res_x res_y		# ints
 
-ul_x ul_y ul_z		# floats, canvas coords
+ul_x ul_y ul_z		# floats in OCaml notation (1.2 OK, 1. OK, .2 NOT OK), canvas coords
 ur_x ur_y ur_z
 lr_x lr_y lr_z
 ll_x ll_y ll_z
@@ -13,28 +13,22 @@ r g b		# 0 <= ints < 256, bg color
 
 rec_depth		# int, max # of times a ray may be reflected
 
-OBJS
-Sph {
+Sph
 	x y z		# floats, center pos
 	radius		# float
 	r g b		# ints
 	glow refl scat		# floats that sum up to <= 1
-}
 
-Surf {
+Surf
 	n_x n_y n_z		# floats, normal vector
 	p_x p_y p_z		# floats, point of surface
 	r g b		# ints
 	glow refl scat		# floats that sum up to <= 1
-}
-
-LIGHTS
-Point {
+	
+Point
 	x y z		# floats, pos
 	intensity		# float
-}
 
-Sun {
+Sun
 	x y z		# floats, dir
 	intensity		# float
-}

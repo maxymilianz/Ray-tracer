@@ -470,7 +470,7 @@ let test filename =
 module type PARSER = sig
     type t
 
-    val read_file : string -> string       (* filename -> scene read from file *)
+    val read_file : string -> Scene.t       (* filename -> scene read from file *)
 end
 
 module Parser : PARSER = struct
@@ -479,22 +479,20 @@ module Parser : PARSER = struct
     type t = Token_Int of int | Token_Float of float | Token_Vector of Vector.t | Token_Color of Color.t | Token_Sph of Sphere.t | Token_Surf of Surface.t
         | Token_Obj of Obj.t | Token_Light of Light.t
 
-    let int_regexp = regexp "[0-9]+"
+    let int_regexp = regexp "-?[0-9]+"
 
-    let float_regexp = regexp "[0-9]*\.[0-9]+"
-
-    let objs_regexp, lights_regexp = regexp "OBJS.+ENDOBJS", regexp "LIGHTS.+ENDLIGHTS"
+    let float_regexp = regexp "-?[0-9]+\.[0-9]*"
 
     let sph_regexp, surf_regexp = regexp "Sph", regexp "Surf"
 
-    let point_regexp, sun_regexp = regexp "Point.+EndPoint", regexp "Sun.+EndSun"
+    let point_regexp, sun_regexp = regexp "Point", regexp "Sun"
 
     let match_int str pos =     (* string -> pos to start searching -> (found int, new pos to start searching for sth else) *)
-        let int_str = string_match int_regexp str pos; matched_string str in
+        let int_str = search_forward int_regexp str pos; matched_string str in
         int_of_string int_str, match_end ()
 
     let match_float str pos =
-        let float_str = string_match float_regexp str pos; matched_string str in
+        let float_str = search_forward float_regexp str pos; matched_string str in
         float_of_string float_str, match_end ()
 
     let match_res str pos =
@@ -522,9 +520,9 @@ module Parser : PARSER = struct
         Color.from_int r g b, pos3
 
     let match_color_ratio str pos =
-        let glow, pos1 = match_int str pos in
-        let refl, pos2 = match_int str pos1 in
-        let scat, pos3 = match_int str pos2 in
+        let glow, pos1 = match_float str pos in
+        let refl, pos2 = match_float str pos1 in
+        let scat, pos3 = match_float str pos2 in
         (glow, refl, scat), pos3
 
     let match_camera_pos = match_vector
@@ -538,9 +536,9 @@ module Parser : PARSER = struct
         let color_ratio, pos4 = match_color_ratio str pos3 in
         Obj.create_sph (Sphere.create center radius color color_ratio), pos4
 
-    let match_sph str pos =
+    let match_surf str pos =
         let normal, pos1 = match_vector str pos in
-        let point, pos2 = match_float str pos1 in
+        let point, pos2 = match_vector str pos1 in
         let color, pos3 = match_color str pos2 in
         let color_ratio, pos4 = match_color_ratio str pos3 in
         Obj.create_surf (Surface.create normal point color color_ratio), pos4
@@ -568,8 +566,56 @@ module Parser : PARSER = struct
         let rec aux objs pos' =
             match match_obj str pos' with
             None -> objs, pos'
-            Some (obj, pos'') -> aux (obj :: objs) pos'' in
+            | Some (obj, pos'') -> aux (obj :: objs) pos'' in
         aux [] pos
+
+    let match_point_light str pos =
+        let light_pos, pos1 = match_vector str pos in
+        let intensity, pos2 = match_float str pos1 in
+        Light.create_point light_pos intensity, pos2
+
+    let match_sun_light str pos =
+        let dir, pos1 = match_vector str pos in
+        let intensity, pos2 = match_float str pos1 in
+        Light.create_sun dir intensity, pos2
+
+    let closer_light str = function
+        None, None -> None
+        | None, Some sun_pos -> Some (match_point_light str sun_pos)
+        | Some point_pos, None -> Some (match_sun_light str point_pos)
+        | Some point_pos, Some sun_pos ->
+            if point_pos < sun_pos then Some (match_point_light str point_pos)
+            else Some (match_sun_light str sun_pos)
+
+    let match_light str pos =
+        let point_pos = try
+                Some (search_forward point_regexp str pos)
+            with e ->
+                None
+        and sun_pos = try
+                Some (search_forward sun_regexp str pos)
+            with e ->
+                None in
+        closer_light str (point_pos, sun_pos)
+
+    let match_lights str pos =
+        let rec aux lights pos' =
+            match match_light str pos' with
+            None -> lights, pos'
+            | Some (light, pos'') -> aux (light :: lights) pos'' in
+        aux [] pos
+
+    let match_scene str pos =
+        let res, pos1 = match_res str pos in
+        let canvas_coords, pos2 = match_canvas_coords str pos1 in
+        let camera_pos, pos3 = match_camera_pos str pos2 in
+        let bg_color, pos4 = match_color str pos3 in
+        let rec_depth, pos5 = match_rec_depth str pos4 in
+        let objs, pos6 = match_objs str pos5 in
+        let lights, _ = match_lights str pos6 in
+        Scene.create res canvas_coords camera_pos bg_color rec_depth objs lights
+
+    let str_to_scene str = match_scene str 0
 
     let read_file filename =
         let stream = open_in filename in
