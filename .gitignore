@@ -8,3 +8,4 @@ ocamlopt -o main graphics.cmxa main.ml.txt
 *.cmi
 *.cmx
 compiling.txt
+ocaml graphics.cma str.cma.txt

@@ -83,3 +83,5 @@ let main () =
     let dst_filename = read_line () in
     if dst_filename = "" then display res pixels
     else to_file dst_filename res pixels
+
+let () = main ()

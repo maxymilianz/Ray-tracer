@@ -17,7 +17,6 @@ let color (_, _, color, _) = color
 let color_ratio (_, _, _, color_ratio) = color_ratio
 
 let test_intersection () =
-    let open Vector in
-    let pos, dir = create 0. 1. 0., create 2. (-1.) 0.
-    and surf = create (create 0. 1. 0.) (create 0. 0. 0.) Color.black (1., 1., 1.) in
+    let pos, dir = Vector.create 0. 1. 0., Vector.create 2. (-1.) 0.
+    and surf = create (Vector.create 0. 1. 0.) (Vector.create 0. 0. 0.) Color.black (1., 1., 1.) in
     intersection pos dir surf
