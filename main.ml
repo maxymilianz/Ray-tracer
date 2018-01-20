@@ -1,3 +1,5 @@
+(* for to_file function, converts Color.t list list to (int * int * int) (rgb) array array *)
+
 let pixels_to_array (res_x, res_y) pixels =
     let array = Array.init res_y (fun i -> Array.make res_x (0, 0, 0)) in
     let rec aux_y y = function
@@ -10,22 +12,25 @@ let pixels_to_array (res_x, res_y) pixels =
     aux_y 0 (List.rev pixels);
     array
 
-let to_file filename (res_x, res_y) pixels =
-    let open Printf in
-    let stream = open_out filename in
-    fprintf stream "P3\n";
-    fprintf stream "%d %d\n" res_x res_y;
-    fprintf stream "%d\n" Color.max_int;
-    let array = pixels_to_array (res_x, res_y) pixels in
-    for y = 0 to res_y - 1 do
-        for x = 0 to res_x - 1 do
-            let r, g, b = array.(y).(x) in
-            fprintf stream "%d %d %d\t\t" r g b
+let to_file filename res pixels =
+    match res with
+    res_x, res_y ->
+        let open Printf in
+        let stream = open_out filename in
+        fprintf stream "P3\n";
+        fprintf stream "%d %d\n" res_x res_y;
+        fprintf stream "%d\n" Color.max_int;
+        let array = pixels_to_array res pixels in
+        for y = 0 to res_y - 1 do
+            for x = 0 to res_x - 1 do
+                let r, g, b = array.(y).(x) in
+                fprintf stream "%d %d %d\t\t" r g b
+            done;
+            fprintf stream "\n"
         done;
-        fprintf stream "\n"
-    done;
-    close_out stream
+        close_out stream
 
+(* for display function, converts Color.t list list to int (Graphics color) array array *)
 let pixels_to_image (res_x, res_y) pixels =
     let open Graphics in
     let color_array = Array.init res_y (fun i -> Array.make res_x 0) in
@@ -39,11 +44,13 @@ let pixels_to_image (res_x, res_y) pixels =
     aux_y 0 (List.rev pixels);
     color_array
 
-let display (res_x, res_y) pixels =
+let display res pixels =
     let open Graphics in
-    open_graph (string_of_int res_x ^ "x" ^ string_of_int res_y);
-    set_window_title "Ray-tracer";
-    draw_image (make_image (pixels_to_image (res_x, res_y) pixels)) 0 0
+    match res with
+    res_x, res_y ->
+        open_graph (string_of_int res_x ^ "x" ^ string_of_int res_y);
+        set_window_title "Ray-tracer";
+        draw_image (make_image (pixels_to_image res pixels)) 0 0
 
 let objs_for_test () =
     let sph = Sphere.create (Vector.create (-50.) (-50.) (-50.)) 70. Color.white (1., 0., 0.)
