@@ -344,12 +344,41 @@ module type SCENE = sig
     type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Obj.t list) * (Light.t list)
 
     val create : (int * int) -> (Vector.t * Vector.t * Vector.t * Vector.t) -> Vector.t -> Color.t -> int -> (Obj.t list) -> (Light.t list) -> t
+    val render : t -> Color.t list list
 end
 
 module Scene : SCENE = struct
     type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Obj.t list) * (Light.t list)
 
     let create res canvas_coords camera_pos bg_color rec_depth objs lights = res, canvas_coords, camera_pos, bg_color, rec_depth, objs, lights
+
+    let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
+        let horizontal, vertical = Vector.(displacement ul ur, displacement ul ll) in
+        let step_x, step_y = Vector.(div horizontal (float res_x), div vertical (float res_y)) in
+        let rec aux_y current_vector y =
+            if y = res_y then []
+            else let rec aux_x current_vector x =
+                if x = res_x then []
+                else let pos = Vector.add current_vector step_x in
+                    pos :: aux_x pos (x + 1) in
+                aux_x current_vector 0 :: aux_y (Vector.add current_vector step_y) (y + 1) in
+        aux_y ul 0
+
+    let render (res, canvas_coords, pos, bg_color, rec_depth, objs, lights) =        (* returns list of lists of colors (res_y * res_x) *)
+        match res with res_x, res_y ->
+            let vectors = pixels_to_vectors res_x res_y canvas_coords in
+            let rec aux_y = function
+                [] -> []
+                | hd :: tl ->
+                    let rec aux_x = function
+                        [] -> []
+                        | hd :: tl ->
+                            let dir = Vector.displacement pos hd in
+                            (match Obj.closest_intersection pos dir objs with
+                            None -> bg_color
+                            | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl in
+                    aux_x hd :: aux_y tl in
+            aux_y vectors
 end
 
 (* let pixel_to_vector res_x res_y x y (ul, ur, lr, ll) =
@@ -362,33 +391,6 @@ let test_pixel_to_vector () = let open Vector in
     and x, y = 161, 415
     and canvas_coords = create 0. 0. 0., create 1000. 0. 0., create 1000. (-1000.) 0., create 0. (-1000.) 0. in
     pixel_to_vector res_x res_y x y canvas_coords *)
-
-let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
-    let horizontal, vertical = Vector.(displacement ul ur, displacement ul ll) in
-    let step_x, step_y = Vector.(div horizontal (float res_x), div vertical (float res_y)) in
-    let rec aux_y current_vector y =
-        if y = res_y then []
-        else let rec aux_x current_vector x =
-            if x = res_x then []
-            else let pos = Vector.add current_vector step_x in
-                pos :: aux_x pos (x + 1) in
-            aux_x current_vector 0 :: aux_y (Vector.add current_vector step_y) (y + 1) in
-    aux_y ul 0
-
-let render res_x res_y canvas_coords pos objs lights bg_color rec_depth =        (* returns list of lists of colors (res_y * res_x) *)
-    let vectors = pixels_to_vectors res_x res_y canvas_coords in
-    let rec aux_y = function
-        [] -> []
-        | hd :: tl ->
-            let rec aux_x = function
-                [] -> []
-                | hd :: tl ->
-                    let dir = Vector.displacement pos hd in
-                    (match Obj.closest_intersection pos dir objs with
-                    None -> bg_color
-                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl in
-            aux_x hd :: aux_y tl in
-    aux_y vectors
 
 let pixels_to_array res_x res_y pixels =
     let array = Array.init res_y (fun i -> Array.make res_x (0, 0, 0)) in
@@ -463,7 +465,7 @@ let test filename =
     and lights = lights_for_test ()
     and bg_color = Color.black
     and rec_depth = 4 in
-    let pixels = render res_x res_y canvas_coords pos objs lights bg_color rec_depth in
+    let pixels = Scene.render (Scene.create (res_x, res_y) canvas_coords pos bg_color rec_depth objs lights) in
     if filename = "" then display res_x res_y pixels
     else to_file filename res_x res_y pixels
 
