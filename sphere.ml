@@ -7,6 +7,7 @@ let solve_quadratic_equation a b c =        (* ax^2 + bx + c = 0 *)
     if delta < 0. then None
     else Some ((-.b +. sqrt delta) /. (2.*.a), (-.b -. sqrt delta) /. (2.*.a))
 
+(* following functions are similar to their equivalents in Myobj module *)
 let intersection pos dir (center, r, _, _) =
     let l = Vector.displacement center pos in
     let a = Vector.dot_prod dir dir

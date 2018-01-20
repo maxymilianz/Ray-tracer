@@ -2,6 +2,7 @@ type t = Vector.t * Vector.t * Color.t * (float * float * float)      (* normal,
 
 let create normal point color ratio = normal, point, color, ratio
 
+(* following functions are similar to their equivalents in Myobj module *)
 let intersection pos dir (normal, point, _, _) =
     let denominator = Vector.dot_prod dir normal in
     if denominator = 0. then None
