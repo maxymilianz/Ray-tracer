@@ -1,4 +1,4 @@
-type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Obj.t list) * (Light.t list)
+type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Myobj.t list) * (Light.t list)
 
 let create res canvas_coords camera_pos bg_color rec_depth objs lights = res, canvas_coords, camera_pos, bg_color, rec_depth, objs, lights
 
@@ -25,8 +25,8 @@ let render ((res_x, res_y), canvas_coords, pos, bg_color, rec_depth, objs, light
                 [] -> []
                 | hd :: tl ->
                     let dir = Vector.displacement pos hd in
-                    (match Obj.closest_intersection pos dir objs with
+                    (match Myobj.closest_intersection pos dir objs with
                     None -> bg_color
-                    | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl in
+                    | Some (obj, point) -> Myobj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl in
             aux_x hd :: aux_y tl in
     aux_y vectors

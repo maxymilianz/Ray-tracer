@@ -55,7 +55,7 @@ let objs_for_test () =
     and sph6 = Sphere.create (Vector.create 800. 570. 100.) 150. Color.red (0., 0.6, 0.4)
     (* and surf = Surface.create (Vector.create 0. 0. (-1.)) (Vector.create 0. 0. 800.) Color.blue (0., 0., 1.) in *)
     and surf = Surface.create (Vector.create 0. (-1.) 0.) (Vector.create 0. 720. 0.) Color.grey (0., 0.6, 0.4) in
-    [Obj.Sph sph; Obj.Sph sph1; Obj.Sph sph2; Obj.Sph sph3; Obj.Sph sph4; Obj.Sph sph5; Obj.Sph sph6; Obj.Surf surf]
+    [Myobj.Sph sph; Myobj.Sph sph1; Myobj.Sph sph2; Myobj.Sph sph3; Myobj.Sph sph4; Myobj.Sph sph5; Myobj.Sph sph6; Myobj.Surf surf]
 
 let lights_for_test () =
     let sun = Light.Sun (Vector.create (1.) (1.) 1., 1.) in

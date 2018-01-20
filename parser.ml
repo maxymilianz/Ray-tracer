@@ -1,8 +1,5 @@
 open Str
 
-type t = Token_Int of int | Token_Float of float | Token_Vector of Vector.t | Token_Color of Color.t | Token_Sph of Sphere.t | Token_Surf of Surface.t
-    | Token_Obj of Obj.t | Token_Light of Light.t
-
 let int_regexp = regexp "-?[0-9]+"
 
 let float_regexp = regexp "-?[0-9]+\.[0-9]*"
@@ -58,14 +55,14 @@ let match_sph str pos =
     let radius, pos2 = match_float str pos1 in
     let color, pos3 = match_color str pos2 in
     let color_ratio, pos4 = match_color_ratio str pos3 in
-    Obj.create_sph (Sphere.create center radius color color_ratio), pos4
+    Myobj.create_sph (Sphere.create center radius color color_ratio), pos4
 
 let match_surf str pos =
     let normal, pos1 = match_vector str pos in
     let point, pos2 = match_vector str pos1 in
     let color, pos3 = match_color str pos2 in
     let color_ratio, pos4 = match_color_ratio str pos3 in
-    Obj.create_surf (Surface.create normal point color color_ratio), pos4
+    Myobj.create_surf (Surface.create normal point color color_ratio), pos4
 
 let closer_obj str = function
     None, None -> None
