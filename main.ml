@@ -344,6 +344,7 @@ module type SCENE = sig
     type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Obj.t list) * (Light.t list)
 
     val create : (int * int) -> (Vector.t * Vector.t * Vector.t * Vector.t) -> Vector.t -> Color.t -> int -> (Obj.t list) -> (Light.t list) -> t
+    val res : t -> (int * int)
     val render : t -> Color.t list list
 end
 
@@ -351,6 +352,8 @@ module Scene : SCENE = struct
     type t = (int * int) * (Vector.t * Vector.t * Vector.t * Vector.t) * Vector.t * Color.t * int * (Obj.t list) * (Light.t list)
 
     let create res canvas_coords camera_pos bg_color rec_depth objs lights = res, canvas_coords, camera_pos, bg_color, rec_depth, objs, lights
+
+    let res (res, _, _, _, _, _, _) = res
 
     let pixels_to_vectors res_x res_y (ul, ur, lr, ll) =
         let horizontal, vertical = Vector.(displacement ul ur, displacement ul ll) in
@@ -364,21 +367,20 @@ module Scene : SCENE = struct
                 aux_x current_vector 0 :: aux_y (Vector.add current_vector step_y) (y + 1) in
         aux_y ul 0
 
-    let render (res, canvas_coords, pos, bg_color, rec_depth, objs, lights) =        (* returns list of lists of colors (res_y * res_x) *)
-        match res with res_x, res_y ->
-            let vectors = pixels_to_vectors res_x res_y canvas_coords in
-            let rec aux_y = function
-                [] -> []
-                | hd :: tl ->
-                    let rec aux_x = function
-                        [] -> []
-                        | hd :: tl ->
-                            let dir = Vector.displacement pos hd in
-                            (match Obj.closest_intersection pos dir objs with
-                            None -> bg_color
-                            | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl in
-                    aux_x hd :: aux_y tl in
-            aux_y vectors
+    let render ((res_x, res_y), canvas_coords, pos, bg_color, rec_depth, objs, lights) =        (* returns list of lists of colors (res_y * res_x) *)
+        let vectors = pixels_to_vectors res_x res_y canvas_coords in
+        let rec aux_y = function
+            [] -> []
+            | hd :: tl ->
+                let rec aux_x = function
+                    [] -> []
+                    | hd :: tl ->
+                        let dir = Vector.displacement pos hd in
+                        (match Obj.closest_intersection pos dir objs with
+                        None -> bg_color
+                        | Some (obj, point) -> Obj.resultant_color pos point obj objs lights bg_color rec_depth) :: aux_x tl in
+                aux_x hd :: aux_y tl in
+        aux_y vectors
 end
 
 module type PARSER = sig
@@ -542,7 +544,7 @@ module Parser : PARSER = struct
         str_to_scene (aux "")
 end
 
-let pixels_to_array res_x res_y pixels =
+let pixels_to_array (res_x, res_y) pixels =
     let array = Array.init res_y (fun i -> Array.make res_x (0, 0, 0)) in
     let rec aux_y y = function
         [] -> ()
@@ -554,13 +556,13 @@ let pixels_to_array res_x res_y pixels =
     aux_y 0 (List.rev pixels);
     array
 
-let to_file filename res_x res_y pixels =
+let to_file filename (res_x, res_y) pixels =
     let open Printf in
     let stream = open_out filename in
     fprintf stream "P3\n";
     fprintf stream "%d %d\n" res_x res_y;
     fprintf stream "%d\n" Color.max_int;
-    let array = pixels_to_array res_x res_y pixels in
+    let array = pixels_to_array (res_x, res_y) pixels in
     for y = 0 to res_y - 1 do
         for x = 0 to res_x - 1 do
             let r, g, b = array.(y).(x) in
@@ -570,7 +572,7 @@ let to_file filename res_x res_y pixels =
     done;
     close_out stream
 
-let pixels_to_image res_x res_y pixels =
+let pixels_to_image (res_x, res_y) pixels =
     let open Graphics in
     let color_array = Array.init res_y (fun i -> Array.make res_x 0) in
     let rec aux_y y = function
@@ -583,12 +585,11 @@ let pixels_to_image res_x res_y pixels =
     aux_y 0 (List.rev pixels);
     color_array
 
-let display res_x res_y pixels =
+let display (res_x, res_y) pixels =
     let open Graphics in
     open_graph (string_of_int res_x ^ "x" ^ string_of_int res_y);
-    (* resize_window res_x res_y; *)
     set_window_title "Ray-tracer";
-    draw_image (make_image (pixels_to_image res_x res_y pixels)) 0 0
+    draw_image (make_image (pixels_to_image (res_x, res_y) pixels)) 0 0
 
 let objs_for_test () =
     let sph = Sphere.create (Vector.create (-50.) (-50.) (-50.)) 70. Color.white (1., 0., 0.)
@@ -614,7 +615,17 @@ let test filename =
     and objs = objs_for_test ()
     and lights = lights_for_test ()
     and bg_color = Color.black
-    and rec_depth = 4 in
+    and rec_depth = 2 in
     let pixels = Scene.render (Scene.create (res_x, res_y) canvas_coords pos bg_color rec_depth objs lights) in
-    if filename = "" then display res_x res_y pixels
-    else to_file filename res_x res_y pixels
+    if filename = "" then display (res_x, res_y) pixels
+    else to_file filename (res_x, res_y) pixels
+
+let main () =
+    print_string "Enter source file name:\n";
+    let src_filename = read_line () in
+    let scene = Parser.read_file src_filename in
+    let res, pixels = Scene.res scene, Scene.render scene in
+    print_string "To display the scene, return. To save it to file, enter destination file name:";
+    let dst_filename = read_line () in
+    if dst_filename = "" then display res pixels
+    else to_file dst_filename res pixels
