@@ -105,8 +105,8 @@ let match_sun_light str pos =
 (* similar to closer_obj, but for Point and Sun Light *)
 let closer_light str = function
     None, None -> None
-    | None, Some sun_pos -> Some (match_point_light str sun_pos)
-    | Some point_pos, None -> Some (match_sun_light str point_pos)
+    | None, Some sun_pos -> Some (match_sun_light str sun_pos)
+    | Some point_pos, None -> Some (match_point_light str point_pos)
     | Some point_pos, Some sun_pos ->
         if point_pos < sun_pos then Some (match_point_light str point_pos)
         else Some (match_sun_light str sun_pos)
