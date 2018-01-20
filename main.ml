@@ -79,7 +79,7 @@ let main () =
     let src_filename = read_line () in
     let scene = Parser.read_file src_filename in
     let res, pixels = Scene.res scene, Scene.render scene in
-    print_string "To display the scene, return. To save it to file, enter destination file name:";
+    print_string "To display the scene, return. To save it to file, enter destination file name:\n";
     let dst_filename = read_line () in
     if dst_filename = "" then display res pixels
     else to_file dst_filename res pixels
