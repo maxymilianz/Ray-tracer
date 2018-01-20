@@ -8,7 +8,8 @@ let sph_regexp, surf_regexp = regexp "Sph", regexp "Surf"
 
 let point_regexp, sun_regexp = regexp "Point", regexp "Sun"
 
-let match_int str pos =     (* string -> pos to start searching -> (found int, new pos to start searching for sth else) *)
+(* string -> pos to start searching -> (found int, new pos to start searching for sth else), functions below similar *)
+let match_int str pos =
     let int_str = search_forward int_regexp str pos; matched_string str in
     int_of_string int_str, match_end ()
 
@@ -64,6 +65,7 @@ let match_surf str pos =
     let color_ratio, pos4 = match_color_ratio str pos3 in
     Myobj.create_surf (Surface.create normal point color color_ratio), pos4
 
+(* returns closer (in the sense of position in .mza file) optional object, choosing from Sph and Surf (in particular they may not exist) *)
 let closer_obj str = function
     None, None -> None
     | None, Some surf_pos -> Some (match_surf str surf_pos)
@@ -100,6 +102,7 @@ let match_sun_light str pos =
     let intensity, pos2 = match_float str pos1 in
     Light.create_sun dir intensity, pos2
 
+(* similar to closer_obj, but for Point and Sun Light *)
 let closer_light str = function
     None, None -> None
     | None, Some sun_pos -> Some (match_point_light str sun_pos)
@@ -136,8 +139,10 @@ let match_scene str pos =
     let lights, _ = match_lights str pos6 in
     Scene.create res canvas_coords camera_pos bg_color rec_depth objs lights
 
+(* contents of .mza file -> scene (may throw some exceptions for incompatible file) *)
 let str_to_scene str = match_scene str 0
 
+(* filename -> scene (may throw some exceptions for incompatible file) *)
 let read_file filename =
     let stream = open_in filename in
     let rec aux str =
