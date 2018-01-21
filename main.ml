@@ -48,7 +48,8 @@ let display res pixels =
     let open Graphics in
     match res with
     res_x, res_y ->
-        open_graph (string_of_int res_x ^ "x" ^ string_of_int res_y);
+        (* open_graph (string_of_int res_x ^ "x" ^ string_of_int res_y); (* for windows repl *) *)
+        open_graph ""; resize_window res_x res_y;       (* for linux or compilation *)
         set_window_title "Ray-tracer";
         draw_image (make_image (pixels_to_image res pixels)) 0 0
 
