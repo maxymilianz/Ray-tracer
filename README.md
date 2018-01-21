@@ -1,4 +1,4 @@
-Tested on Lubuntu and Cygwin.
+Compilation tested on Debian and Cygwin. I could not make it work on Windows.
 
 To compile, type:
 `ocamlbuild -pkg graphics -pkg str 'main.native'`.
@@ -8,6 +8,8 @@ To delete files necessary to run, except `main.native`, type:
 `ocamlbuild -clean`.
 
 Ray-tracer either displays the generated image (not on Cygwin), or saves it to file in ppm format.
+
+The scene-description file format is specified in `.mza format specification`. I also recommend to see the `sample.mza`.
 
 To compile, You need OCaml and Linux or Cygwin. Installation instructions:
 https://ocaml.org/docs/install.html
