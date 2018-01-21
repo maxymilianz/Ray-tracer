@@ -2,6 +2,7 @@
 
 res_x res_y		# ints
 
+CC
 ul_x ul_y ul_z		# floats in OCaml notation (1.2 OK, 1. OK, .2 NOT OK), canvas coords
 ur_x ur_y ur_z
 lr_x lr_y lr_z
