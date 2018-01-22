@@ -1,9 +1,11 @@
-.mza format specification ('#' indicates a comment to the end of line ONLY IN THIS FILE), every line
-with some contents must be indented:
+# .mza format specification
+# '#' indicates a comment to the end of line ONLY IN THIS FILE
+# every line with some contents must be indented on Windows/Cygwin
+# all floats are in OCaml notation (1.2 OK, 1. OK, .2 NOT OK)
 
 	res_x res_y		# ints
 
-	ul_x ul_y ul_z		# floats in OCaml notation (1.2 OK, 1. OK, .2 NOT OK), canvas coords
+	ul_x ul_y ul_z		# floats, canvas coords, upper left, rigth, lower right, left
 	ur_x ur_y ur_z
 	lr_x lr_y lr_z
 	ll_x ll_y ll_z
@@ -14,22 +16,22 @@ with some contents must be indented:
 
 	rec_depth		# int, max # of times a ray may be reflected
 
-	Sph
+	Sph		# sphere
 		x y z		# floats, center pos
 		radius		# float
 		r g b		# ints
-		glow refl scat		# floats that sum up to <= 1
+		glow refl scat		# floats, sum <= 1, ratio of light glowed, reflected and scattered
 
-	Surf
+	Surf		# surface
 		n_x n_y n_z		# floats, normal vector
 		p_x p_y p_z		# floats, point of surface
 		r g b		# ints
-		glow refl scat		# floats that sum up to <= 1
+		glow refl scat		# floats, sum <= 1, ratio of light glowed, reflected and scattered
 		
-	Point
+	Point		# point light
 		x y z		# floats, pos
 		intensity		# float
 
-	Sun
+	Sun		# sun light
 		x y z		# floats, dir
 		intensity		# float
