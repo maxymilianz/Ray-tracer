@@ -1,17 +1,5 @@
 (* for to_file function, converts Color.t list list to (int * int * int) (rgb) array array *)
 
-let pixels_to_array (res_x, res_y) pixels =
-    let array = Array.init res_y (fun i -> Array.make res_x (0, 0, 0)) in
-    let rec aux_y y = function
-        [] -> ()
-        | hd :: tl ->
-            let rec aux_x x = function
-                [] -> ()
-                | hd :: tl -> (array.(y).(x) <- Color.to_int hd); aux_x (x + 1) tl in
-            aux_x 0 hd; aux_y (y + 1) tl in
-    aux_y 0 (List.rev pixels);
-    array
-
 let to_file filename res pixels =
     match res with
     res_x, res_y ->
@@ -20,14 +8,16 @@ let to_file filename res pixels =
         fprintf stream "P3\n";
         fprintf stream "%d %d\n" res_x res_y;
         fprintf stream "%d\n" Color.max_int;
-        let array = pixels_to_array res pixels in
-        for y = 0 to res_y - 1 do
-            for x = 0 to res_x - 1 do
-                let r, g, b = array.(y).(x) in
-                fprintf stream "%d %d %d\t\t" r g b
-            done;
-            fprintf stream "\n"
-        done;
+        let rec aux_y = function
+            [] -> ()
+            | hd :: tl ->
+                let rec aux_x = function
+                    [] -> fprintf stream "\n"
+                    | hd :: tl ->
+                        match Color.to_int hd with
+                        r, g, b -> fprintf stream "%d %d %d\t\t" r g b; aux_x tl in
+                aux_x hd; aux_y tl in
+        aux_y pixels;
         close_out stream
 
 (* for display function, converts Color.t list list to int (Graphics color) array array *)

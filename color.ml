@@ -11,7 +11,7 @@ let create r g b = C (r, g, b)
 
 let add (C (r, g, b)) (C (r', g', b')) = C (r+.r', g+.g', b+.b')
 
-let mult (C (r, g, b)) c = C (r*.c, g*.c, b*.c)     (* multiple each color component with a float *)
+let mult (C (r, g, b)) c = C (r*.c, g*.c, b*.c)     (* multiply each color component with float *)
 
 let div (C (r, g, b)) c = C (r/.c, g/.c, b/.c)      (* divide each color component by float *)
 
