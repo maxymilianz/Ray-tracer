@@ -30,8 +30,8 @@ let pixels_to_image (res_x, res_y) pixels =
             let rec aux_x x = function
                 [] -> ()
                 | hd :: tl -> (color_array.(y).(x) <- Color.to_graphics_color hd); aux_x (x + 1) tl in
-            aux_x 0 hd; aux_y (y + 1) tl in
-    aux_y 0 (List.rev pixels);
+            aux_x 0 hd; aux_y (y - 1) tl in
+    aux_y (res_y - 1) (List.rev pixels);
     color_array
 
 let display res pixels =
